@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo-1024.png" alt="NoShitMac — The Helix Tab Mark" width="128" height="128">
+  <img src="https://raw.githubusercontent.com/rkjagani781/NoShitMac/main/docs/assets/logo-1024.png" alt="NoShitMac — The Helix Tab Mark" width="160" height="160">
 </p>
 
 <h1 align="center">NoShitMac</h1>
@@ -7,24 +7,89 @@
 <p align="center"><strong>Two windows. One snap. Zero ceremony.</strong></p>
 
 <p align="center">
-  Lightweight Mac menu-bar toolkit — Windows-style window switching and screenshots with inline editing.<br>
-  Built native in Swift. No Dock icon. Runs from the menu bar only.
+  A native macOS menu-bar <strong>super-app</strong> — fast utilities that stay out of your way until you need them.<br>
+  Built in Swift. No Dock icon. No Electron. No subscription. Just power, one click away.
 </p>
 
-### The Helix Tab Mark
+---
 
-The logo is an original symbol: two interlocking window panes twisted mid-switch. The negative space between them forms a **void-bolt** — speed implied by geometry, not a stock lightning icon. See [BRAND.md](BRAND.md) for colors, voice, and asset paths.
+## What is NoShitMac?
+
+NoShitMac is a **modular productivity command center** for macOS. Instead of installing five separate utilities, you get one lightweight menu-bar app with a plug-in architecture — each tool is an independent feature you can enable, rebind, and extend.
+
+**Today:** window switching, screenshots, and window cleanup.  
+**Tomorrow:** clipboard history, batch rename, and more — shipped as individual features, not bloat.
+
+The logo is the **Helix Tab Mark** — two interlocking window panes twisted mid-switch. The gap between them forms a *void-bolt*: speed implied by geometry, not a stock icon. See [BRAND.md](BRAND.md).
 
 ---
 
 ## Features
 
-| Feature | What it does |
+### Window Switcher
+
+Windows-style `⌥ Tab` switching — but it actually works on a Mac.
+
+- Cycle **every open window** across Spaces and fullscreen
+- Hold modifier to browse, release to switch
+- Thumbnails load on demand — fast, not flashy
+- Rebind hotkey in Settings
+
+**Default hotkey:** `⌥ Tab`
+
+---
+
+### Screenshot Studio
+
+Capture, annotate, and ship — without opening Preview.
+
+- Region or full-screen capture (`⌥⇧ 4` by default)
+- Auto-copy to clipboard on capture
+- Native editor: pencil, highlighter (with color palettes), crop
+- Save as PNG, copy, delete, or close
+- macOS-standard editor window with toolbar
+
+**Default hotkey:** `⌥⇧ 4`
+
+---
+
+### Window Cleanup
+
+One button to kill background clutter.
+
+- **Clean Up Windows** in the menu bar panel
+- Closes windows from background apps (minimized, hidden, or off-screen)
+- Your frontmost app is always protected
+- Confirmation dialog before anything closes
+
+Requires Accessibility permission.
+
+---
+
+### System & Controls
+
+| Capability | Details |
 |---|---|
-| **Window Switcher** | Hold `⌥ Tab` to cycle all open windows (including fullscreen & other Spaces), release to switch |
-| **Screenshot** | Capture a region or full screen, auto-copy to clipboard, annotate with pencil / highlight / crop |
-| **Custom Hotkeys** | Rebind any action in Settings |
-| **Launch at Login** | Optional — keep tools available after reboot |
+| **Custom hotkeys** | Rebind any action — conflict warnings for system shortcuts |
+| **Launch at login** | Optional — tools ready after reboot |
+| **Per-feature toggles** | Enable/disable tools individually in Settings |
+| **Permissions panel** | One-click links to System Settings |
+
+---
+
+## Coming Soon
+
+NoShitMac is built to grow. Each item below ships as its own `FeatureModule` — independent, optional, and fast.
+
+| Feature | What it will do |
+|---|---|
+| **Clipboard Manager** | History tray, paste from recent copies, pin favorites |
+| **Batch File Rename** | Regex, sequence, and preview-before-apply |
+| **Window Switcher Pro** | Mouse pick, app-only mode, per-app blacklist |
+| **Screenshot Pro** | Window capture, arrows, shapes, screenshot history |
+| **Auto-update** | Silent updates from GitHub releases |
+
+Want something else? [Open an issue](https://github.com/rkjagani781/NoShitMac/issues) — the architecture is ready for it.
 
 ---
 
@@ -56,11 +121,11 @@ Press **⌘R** in Xcode.
 
 NoShitMac is a **menu bar app** — there is no Dock icon.
 
-Look for the **⚡ bolt icon** in the top-right menu bar (check the `>>` overflow if hidden).
+Look for the **Helix Tab Mark** (interlocking panes icon) in the top-right menu bar. Check the `>>` overflow if hidden.
 
 ### 4. Grant permissions
 
-Click **⚡** → click **Grant** for each permission, or enable manually in **System Settings → Privacy & Security**:
+Click the menu bar icon → **Grant** for each permission, or enable manually in **System Settings → Privacy & Security**:
 
 - Accessibility
 - Screen Recording
@@ -72,28 +137,15 @@ Quit and relaunch after granting (⌘. in Xcode, then ⌘R again).
 
 ---
 
-## Default Hotkeys
-
-| Action | Hotkey | Change in |
-|---|---|---|
-| Window Switcher | `⌥ Tab` | Settings → Hotkeys |
-| Screenshot | `⌥⇧ 4` | Settings → Hotkeys |
-
-Hold modifier keys while cycling in the switcher; release to confirm.
-
-Screenshot mode (region vs full screen): **Settings → Features → Screenshot**.
-
-Config file: `~/Library/Application Support/NoShitMac/config.json`
-
----
-
 ## Settings
 
-**⚡ menu bar icon → Settings…** (or **⌘,**)
+**Menu bar icon → Settings…** (or **⌘,**)
 
 - **General** — Launch at login
-- **Hotkeys** — Rebind actions (conflict warnings for system shortcuts)
+- **Hotkeys** — Rebind actions
 - **Features** — Enable/disable tools, screenshot mode
+
+Config file: `~/Library/Application Support/NoShitMac/config.json`
 
 ---
 
@@ -124,14 +176,6 @@ Requires full Xcode:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Modular `FeatureModule` design |
 | [PERMISSIONS.md](PERMISSIONS.md) | Permission setup guide |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common fixes |
-
----
-
-## Roadmap (Phase 2)
-
-- Window switcher: mouse pick, app-only mode, app blacklist
-- Screenshot: window capture, arrows, history tray
-- Clipboard manager · batch file rename · auto-update
 
 ---
 
