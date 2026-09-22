@@ -15,7 +15,7 @@
 
 ## Fullscreen app won't switch
 
-Ensure Accessibility is granted. NoShitMac uses the Accessibility API to raise windows across Spaces.
+Ensure Accessibility is granted. NoShitMac lists windows across all Spaces and uses the Accessibility API to unminimize, raise, and focus windows. If a fullscreen app on another Space still won't switch, quit and relaunch NoShitMac after granting permissions.
 
 ## Screenshot is black or empty
 

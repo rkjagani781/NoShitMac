@@ -1,5 +1,4 @@
 import AppKit
-import PencilKit
 import SwiftUI
 
 enum EditorTool: String, CaseIterable {
@@ -16,15 +15,33 @@ enum EditorTool: String, CaseIterable {
     }
 }
 
+@MainActor
+final class EditorCanvasController: ObservableObject {
+    let drawingView = ScreenshotDrawingView()
+
+    func applyTool(_ tool: EditorTool) {
+        drawingView.activeTool = tool
+    }
+
+    func clearDrawing() {
+        drawingView.clear()
+    }
+
+    func render(on base: NSImage, viewSize: NSSize) -> NSImage {
+        drawingView.render(on: base, viewSize: viewSize)
+    }
+}
+
 struct ScreenshotEditorView: View {
     let sourceImage: NSImage
     let onDone: (NSImage) -> Void
     let onCancel: () -> Void
 
+    @StateObject private var canvasController = EditorCanvasController()
     @State private var selectedTool: EditorTool = .pencil
-    @State private var canvasView = PKCanvasView()
     @State private var cropRect: CGRect?
     @State private var displayImage: NSImage
+    @State private var canvasSize: CGSize = .zero
 
     init(sourceImage: NSImage, onDone: @escaping (NSImage) -> Void, onCancel: @escaping () -> Void) {
         self.sourceImage = sourceImage
@@ -42,7 +59,7 @@ struct ScreenshotEditorView: View {
                 ForEach(EditorTool.allCases, id: \.self) { tool in
                     Button {
                         selectedTool = tool
-                        updateCanvasTool()
+                        canvasController.applyTool(tool)
                     } label: {
                         Label(tool.rawValue, systemImage: tool.icon)
                     }
@@ -51,17 +68,21 @@ struct ScreenshotEditorView: View {
                 }
             }
 
-            ZStack {
-                Image(nsImage: displayImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            GeometryReader { geo in
+                ZStack {
+                    Image(nsImage: displayImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if selectedTool != .crop {
-                    CanvasRepresentable(canvasView: canvasView)
-                } else {
-                    CropOverlayView(cropRect: $cropRect, imageSize: displayImage.size)
+                    if selectedTool != .crop {
+                        DrawingCanvasRepresentable(drawingView: canvasController.drawingView)
+                    } else {
+                        CropOverlayView(cropRect: $cropRect, imageSize: displayImage.size)
+                    }
                 }
+                .onAppear { canvasSize = geo.size }
+                .onChange(of: geo.size) { canvasSize = $0 }
             }
             .frame(minHeight: 360)
             .background(Color.black.opacity(0.85))
@@ -75,7 +96,7 @@ struct ScreenshotEditorView: View {
                 }
                 .disabled(selectedTool != .crop || cropRect == nil)
                 Button("Copy & Done") {
-                    let final = renderFinalImage()
+                    let final = canvasController.render(on: displayImage, viewSize: NSSize(width: canvasSize.width, height: canvasSize.height))
                     onDone(final)
                 }
                 .keyboardShortcut(.defaultAction)
@@ -85,65 +106,26 @@ struct ScreenshotEditorView: View {
         .padding(16)
         .frame(width: 860, height: 620)
         .onAppear {
-            configureCanvas()
-        }
-    }
-
-    private func configureCanvas() {
-        canvasView.drawingPolicy = .anyInput
-        canvasView.backgroundColor = .clear
-        canvasView.isOpaque = false
-        updateCanvasTool()
-    }
-
-    private func updateCanvasTool() {
-        switch selectedTool {
-        case .pencil:
-            canvasView.tool = PKInkingTool(.pen, color: .red, width: 3)
-            canvasView.isUserInteractionEnabled = true
-        case .highlight:
-            canvasView.tool = PKInkingTool(.marker, color: NSColor.yellow.withAlphaComponent(0.5), width: 20)
-            canvasView.isUserInteractionEnabled = true
-        case .crop:
-            canvasView.isUserInteractionEnabled = false
+            canvasController.applyTool(selectedTool)
         }
     }
 
     private func applyCropAction() {
-        guard let cropRect, let cropped = applyCrop(to: displayImage, rect: cropRect) else { return }
+        guard let rect = cropRect, let cropped = applyCrop(to: displayImage, rect: rect) else { return }
         displayImage = cropped
-        cropRect = nil
-        canvasView.drawing = PKDrawing()
+        self.cropRect = nil
+        canvasController.clearDrawing()
         selectedTool = .pencil
-        updateCanvasTool()
-    }
-
-    private func renderFinalImage() -> NSImage {
-        let base = displayImage
-        let drawing = canvasView.drawing
-        guard !drawing.bounds.isEmpty else { return base }
-
-        let size = base.size
-        let rendered = NSImage(size: size)
-        rendered.lockFocus()
-
-        base.draw(in: NSRect(origin: .zero, size: size))
-
-        let bounds = NSRect(origin: .zero, size: size)
-        let image = drawing.image(from: bounds, scale: NSScreen.main?.backingScaleFactor ?? 2)
-        image.draw(in: bounds)
-
-        rendered.unlockFocus()
-        return rendered
+        canvasController.applyTool(.pencil)
     }
 }
 
-private struct CanvasRepresentable: NSViewRepresentable {
-    let canvasView: PKCanvasView
+private struct DrawingCanvasRepresentable: NSViewRepresentable {
+    let drawingView: ScreenshotDrawingView
 
-    func makeNSView(context: Context) -> PKCanvasView {
-        canvasView
+    func makeNSView(context: Context) -> ScreenshotDrawingView {
+        drawingView
     }
 
-    func updateNSView(_ nsView: PKCanvasView, context: Context) {}
+    func updateNSView(_ nsView: ScreenshotDrawingView, context: Context) {}
 }

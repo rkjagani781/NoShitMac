@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 
 public struct HotkeyBinding: Codable, Equatable, Sendable {
@@ -27,10 +28,41 @@ public struct HotkeyBinding: Codable, Equatable, Sendable {
 
     public func matches(event: NSEvent) -> Bool {
         guard event.keyCode == keyCode else { return false }
-        let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
-        let expected = Set(modifiers.map(\.nsModifier))
-        let actual = Set(ModifierKey.from(nsFlags: flags))
+        return matches(modifiers: event.modifierFlags)
+    }
+
+    public func matches(modifiers flags: NSEvent.ModifierFlags) -> Bool {
+        let expected = Set(self.modifiers)
+        let actual = Set(ModifierKey.from(nsFlags: flags.intersection([.command, .option, .control, .shift])))
         return actual == expected
+    }
+
+    /// True when every modifier in this binding is currently held.
+    public func allModifiersHeld(_ flags: NSEvent.ModifierFlags) -> Bool {
+        let required = Set(modifiers)
+        let current = Set(ModifierKey.from(nsFlags: flags.intersection([.command, .option, .control, .shift])))
+        return required.isSubset(of: current)
+    }
+
+    /// True when the user released at least one modifier from this binding.
+    public func anyRequiredModifierReleased(from previous: NSEvent.ModifierFlags, to current: NSEvent.ModifierFlags) -> Bool {
+        let prev = previous.intersection([.command, .option, .control, .shift])
+        let curr = current.intersection([.command, .option, .control, .shift])
+        for mod in modifiers where prev.contains(mod.nsModifier) && !curr.contains(mod.nsModifier) {
+            return true
+        }
+        return false
+    }
+
+    public var conflictsWithSystemShortcut: Bool {
+        let systemCombos: [(UInt16, [ModifierKey])] = [
+            (48, [.command]),           // Cmd+Tab
+            (48, [.control]),           // Ctrl+Tab (browser tabs)
+            (20, [.command, .shift]),   // Cmd+Shift+3 screenshot
+            (21, [.command, .shift]),   // Cmd+Shift+4 screenshot
+            (21, [.command, .shift, .control]), // Cmd+Shift+Ctrl+4
+        ]
+        return systemCombos.contains { $0.0 == keyCode && Set($0.1) == Set(modifiers) }
     }
 }
 
@@ -76,7 +108,7 @@ public enum ModifierKey: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    static func from(nsFlags: NSEvent.ModifierFlags) -> [ModifierKey] {
+    public static func from(nsFlags: NSEvent.ModifierFlags) -> [ModifierKey] {
         var result: [ModifierKey] = []
         if nsFlags.contains(.command) { result.append(.command) }
         if nsFlags.contains(.option) { result.append(.option) }

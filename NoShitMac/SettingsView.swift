@@ -19,6 +19,7 @@ struct SettingsView: View {
 
             FeaturesSettingsTab()
                 .environmentObject(registry)
+                .environmentObject(config)
                 .tabItem { Label("Features", systemImage: "square.grid.2x2") }
         }
         .frame(width: 480, height: 360)
@@ -48,25 +49,47 @@ private struct HotkeysSettingsTab: View {
 
     var body: some View {
         Form {
-            HotkeyRecorderView(label: "Window Switcher", binding: Binding(
-                get: { config.config.windowSwitcher },
-                set: { newValue in
-                    config.update { $0.windowSwitcher = newValue }
-                    NotificationCenter.default.post(name: .featureConfigChanged, object: nil)
-                }
-            ))
-            HotkeyRecorderView(label: "Screenshot", binding: Binding(
-                get: { config.config.screenshot },
-                set: { newValue in
-                    config.update { $0.screenshot = newValue }
-                    NotificationCenter.default.post(name: .featureConfigChanged, object: nil)
-                }
-            ))
+            HotkeySettingRow(
+                label: "Window Switcher",
+                binding: Binding(
+                    get: { config.config.windowSwitcher },
+                    set: { newValue in
+                        config.update { $0.windowSwitcher = newValue }
+                        NotificationCenter.default.post(name: .featureConfigChanged, object: nil)
+                    }
+                )
+            )
+            HotkeySettingRow(
+                label: "Screenshot",
+                binding: Binding(
+                    get: { config.config.screenshot },
+                    set: { newValue in
+                        config.update { $0.screenshot = newValue }
+                        NotificationCenter.default.post(name: .featureConfigChanged, object: nil)
+                    }
+                )
+            )
             Text("Avoid conflicts with macOS system shortcuts.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding()
+    }
+}
+
+private struct HotkeySettingRow: View {
+    let label: String
+    @Binding var binding: HotkeyBinding
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HotkeyRecorderView(label: label, binding: $binding)
+            if binding.conflictsWithSystemShortcut {
+                Label("Conflicts with a macOS system shortcut", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
     }
 }
 

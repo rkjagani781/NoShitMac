@@ -9,6 +9,7 @@ struct WindowInfo: Identifiable, Equatable {
     let bounds: CGRect
     let layer: Int
     let isOnScreen: Bool
+    let isMinimized: Bool
 
     var appIcon: NSImage? {
         guard let app = NSRunningApplication(processIdentifier: ownerPID) else { return nil }

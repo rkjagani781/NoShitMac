@@ -14,7 +14,7 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
     private var selectedIndex = 0
     private var thumbnails: [CGWindowID: NSImage] = [:]
     private var isActive = false
-    private var modifierHeld = false
+    private var lastModifierFlags: NSEvent.ModifierFlags = []
     private var binding = HotkeyBinding.windowSwitcherDefault
 
     func requiredPermissions() -> [PermissionType] {
@@ -63,33 +63,33 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
         case .keyDown(let keyCode, let modifiers):
             if HotkeyMatcher.matches(binding: binding, keyCode: keyCode, modifiers: modifiers) {
                 if !isActive {
-                    beginSwitching()
+                    beginSwitching(modifiers: modifiers)
                 } else {
                     cycleForward()
                 }
-            } else if isActive && keyCode == UInt16(kVK_Tab) {
+            } else if isActive && keyCode == UInt16(kVK_Tab) && binding.allModifiersHeld(modifiers) {
                 if modifiers.contains(.shift) {
                     cycleBackward()
                 } else {
                     cycleForward()
                 }
             }
+            lastModifierFlags = modifiers
 
         case .flagsChanged(let modifiers):
-            let optionHeld = modifiers.contains(.option)
-            if isActive && modifierHeld && !optionHeld {
+            if isActive, binding.anyRequiredModifierReleased(from: lastModifierFlags, to: modifiers) {
                 confirmSelection()
             }
-            modifierHeld = optionHeld
+            lastModifierFlags = modifiers
 
         case .keyUp:
             break
         }
     }
 
-    private func beginSwitching() {
+    private func beginSwitching(modifiers: NSEvent.ModifierFlags) {
         isActive = true
-        modifierHeld = true
+        lastModifierFlags = modifiers
         windows = WindowEnumerator.enumerate()
         selectedIndex = 0
         loadThumbnails()
@@ -121,7 +121,7 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
     private func loadThumbnails() {
         thumbnails.removeAll()
         for window in windows.prefix(20) {
-            thumbnails[window.id] = WindowEnumerator.thumbnail(for: window.id)
+            thumbnails[window.id] = WindowEnumerator.thumbnail(for: window)
         }
     }
 
@@ -148,7 +148,7 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
 
     private func dismissOverlay() {
         isActive = false
-        modifierHeld = false
+        lastModifierFlags = []
         services?.overlay.dismiss()
     }
 }

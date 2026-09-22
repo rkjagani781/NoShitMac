@@ -21,12 +21,21 @@ final class AppConfigTests: XCTestCase {
             screenshot: .screenshotDefault,
             windowSwitcherEnabled: true,
             screenshotEnabled: false,
+            screenshotCaptureMode: .fullScreen,
             launchAtLogin: true
         )
         let data = try JSONEncoder().encode(config)
         let decoded = try JSONDecoder().decode(AppConfig.self, from: data)
         XCTAssertEqual(decoded.windowSwitcher.keyCode, 35)
         XCTAssertFalse(decoded.screenshotEnabled)
+        XCTAssertEqual(decoded.screenshotCaptureMode, .fullScreen)
         XCTAssertTrue(decoded.launchAtLogin)
+    }
+
+    func testHotkeyModifierReleaseDetection() {
+        let binding = HotkeyBinding(keyCode: 48, modifiers: [.control])
+        let held = NSEvent.ModifierFlags.control
+        let released = NSEvent.ModifierFlags()
+        XCTAssertTrue(binding.anyRequiredModifierReleased(from: held, to: released))
     }
 }

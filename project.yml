@@ -2,14 +2,14 @@ name: NoShitMac
 options:
   bundleIdPrefix: com.rkjagani781
   deploymentTarget:
-    macOS: "13.0"
+    macOS: "14.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
 
 targets:
   NoShitMacCore:
@@ -32,6 +32,7 @@ targets:
     dependencies:
       - target: NoShitMacCore
         embed: true
+      - sdk: ScreenCaptureKit.framework
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.rkjagani781.NoShitMac
       INFOPLIST_FILE: NoShitMac/Info.plist

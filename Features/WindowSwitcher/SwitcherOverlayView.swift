@@ -83,10 +83,21 @@ private struct WindowTile: View {
                 .multilineTextAlignment(.center)
                 .frame(width: 160)
 
-            Text(window.ownerName)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                Text(window.ownerName)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if window.isMinimized {
+                    Text("minimized")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else if !window.isOnScreen {
+                    Text("other space")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .scaleEffect(isSelected ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.12), value: isSelected)

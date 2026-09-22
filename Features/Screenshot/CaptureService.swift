@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import ScreenCaptureKit
 
+@available(macOS 14.0, *)
 enum CaptureService {
     @MainActor
     static func captureFullScreen() async throws -> NSImage {
@@ -13,43 +14,53 @@ enum CaptureService {
     }
 
     @MainActor
-    static func captureRegion(_ rect: CGRect) async throws -> NSImage {
-        guard let screen = NSScreen.main else {
-            throw CaptureError.noScreen
-        }
-        let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID ?? CGMainDisplayID()
+    static func captureRegion(_ globalRect: CGRect) async throws -> NSImage {
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
 
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        guard let display = content.displays.first(where: { $0.displayID == displayID }) ?? content.displays.first else {
+        let center = CGPoint(x: globalRect.midX, y: globalRect.midY)
+        guard let display = content.displays.first(where: { $0.frame.contains(center) }) ?? content.displays.first else {
             throw CaptureError.noDisplay
         }
 
+        let localRect = CGRect(
+            x: globalRect.origin.x - display.frame.origin.x,
+            y: globalRect.origin.y - display.frame.origin.y,
+            width: globalRect.width,
+            height: globalRect.height
+        )
+
+        guard localRect.width > 0, localRect.height > 0 else {
+            throw CaptureError.invalidRegion
+        }
+
+        let scale = displayScale(for: display.displayID)
         let filter = SCContentFilter(display: display, excludingWindows: [])
         let config = SCStreamConfiguration()
-        config.width = Int(rect.width * 2)
-        config.height = Int(rect.height * 2)
-        config.sourceRect = rect
+        config.width = Int(localRect.width * scale)
+        config.height = Int(localRect.height * scale)
+        config.sourceRect = localRect
         config.showsCursor = true
 
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        return NSImage(cgImage: image, size: NSSize(width: rect.width, height: rect.height))
+        return NSImage(cgImage: image, size: NSSize(width: globalRect.width, height: globalRect.height))
     }
 
     @MainActor
     private static func captureDisplay(_ displayID: CGDirectDisplayID) async throws -> NSImage {
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
         guard let display = content.displays.first(where: { $0.displayID == displayID }) ?? content.displays.first else {
             throw CaptureError.noDisplay
         }
 
+        let scale = displayScale(for: display.displayID)
         let filter = SCContentFilter(display: display, excludingWindows: [])
         let config = SCStreamConfiguration()
-        config.width = Int(display.width)
-        config.height = Int(display.height)
+        config.width = Int(display.frame.width * scale)
+        config.height = Int(display.frame.height * scale)
         config.showsCursor = true
 
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        return NSImage(cgImage: image, size: NSSize(width: display.width, height: display.height))
+        return NSImage(cgImage: image, size: NSSize(width: display.frame.width, height: display.frame.height))
     }
 
     static func copyToClipboard(_ image: NSImage) {
@@ -57,16 +68,26 @@ enum CaptureService {
         pasteboard.clearContents()
         pasteboard.writeObjects([image])
     }
+
+    private static func displayScale(for displayID: CGDirectDisplayID) -> CGFloat {
+        NSScreen.screens
+            .first {
+                ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == displayID
+            }?
+            .backingScaleFactor ?? 2.0
+    }
 }
 
 enum CaptureError: Error, LocalizedError {
     case noScreen
     case noDisplay
+    case invalidRegion
 
     var errorDescription: String? {
         switch self {
         case .noScreen: return "No screen available"
         case .noDisplay: return "No display available for capture"
+        case .invalidRegion: return "Invalid capture region"
         }
     }
 }

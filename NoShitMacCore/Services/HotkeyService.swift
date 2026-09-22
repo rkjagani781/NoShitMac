@@ -49,6 +49,12 @@ public final class HotkeyService {
         handlers.removeAll()
     }
 
+    fileprivate func dispatch(_ event: HotkeyEvent) {
+        for handler in handlers.values {
+            handler(event)
+        }
+    }
+
     private func ensureTapRunning() {
         guard eventTap == nil else { return }
 
@@ -84,36 +90,10 @@ public final class HotkeyService {
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
     }
-
-    fileprivate func dispatch(_ event: HotkeyEvent) {
-        for handler in handlers.values {
-            handler(event)
-        }
-    }
-
-    fileprivate func handle(type: CGEventType, event: CGEvent) {
-        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-        let nsFlags = NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue))
-
-        let hotkeyEvent: HotkeyEvent
-        switch type {
-        case .keyDown:
-            hotkeyEvent = .keyDown(keyCode: keyCode, modifiers: nsFlags)
-        case .keyUp:
-            hotkeyEvent = .keyUp(keyCode: keyCode, modifiers: nsFlags)
-        case .flagsChanged:
-            hotkeyEvent = .flagsChanged(modifiers: nsFlags)
-        default:
-            return
-        }
-
-        DispatchQueue.main.async { [weak self] in
-            self?.dispatch(hotkeyEvent)
-        }
-    }
 }
 
-private final class HotkeyServiceBox {
+/// Bridges the synchronous CGEventTap C callback to MainActor-isolated handlers.
+private final class HotkeyServiceBox: @unchecked Sendable {
     weak var service: HotkeyService?
 
     init(service: HotkeyService) {
@@ -121,11 +101,26 @@ private final class HotkeyServiceBox {
     }
 
     func handle(type: CGEventType, event: CGEvent) {
-        service?.handle(type: type, event: event)
+        guard let hotkeyEvent = Self.parse(type: type, event: event) else { return }
+        Task { @MainActor [weak service] in
+            service?.dispatch(hotkeyEvent)
+        }
     }
 
-    deinit {
-        // Balanced release handled when tap stops
+    private static func parse(type: CGEventType, event: CGEvent) -> HotkeyEvent? {
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        let nsFlags = NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue))
+
+        switch type {
+        case .keyDown:
+            return .keyDown(keyCode: keyCode, modifiers: nsFlags)
+        case .keyUp:
+            return .keyUp(keyCode: keyCode, modifiers: nsFlags)
+        case .flagsChanged:
+            return .flagsChanged(modifiers: nsFlags)
+        default:
+            return nil
+        }
     }
 }
 

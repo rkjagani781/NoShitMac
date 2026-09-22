@@ -1,6 +1,8 @@
+import AppKit
 import SwiftUI
 
 struct RegionSelectionView: View {
+    let screen: NSScreen
     let onSelect: (CGRect) -> Void
     let onCancel: () -> Void
 
@@ -45,7 +47,7 @@ struct RegionSelectionView: View {
                     }
                     .onEnded { value in
                         if let rect = selectionRect(in: geo.size), rect.width > 4, rect.height > 4 {
-                            onSelect(convertToScreen(rect: rect, viewSize: geo.size))
+                            onSelect(convertToGlobalScreen(rect: rect, viewSize: geo.size))
                         } else {
                             onCancel()
                         }
@@ -66,16 +68,11 @@ struct RegionSelectionView: View {
         return CGRect(x: x, y: y, width: w, height: h)
     }
 
-    private func convertToScreen(rect: CGRect, viewSize: CGSize) -> CGRect {
-        guard let screen = NSScreen.main else { return rect }
+    /// Convert SwiftUI view coords (top-left origin) to global Cocoa screen points (bottom-left origin).
+    private func convertToGlobalScreen(rect: CGRect, viewSize: CGSize) -> CGRect {
         let screenFrame = screen.frame
-        let scale = screen.backingScaleFactor
-        let flippedY = viewSize.height - rect.origin.y - rect.height
-        return CGRect(
-            x: rect.origin.x * scale,
-            y: flippedY * scale,
-            width: rect.width * scale,
-            height: rect.height * scale
-        )
+        let globalX = screenFrame.origin.x + rect.origin.x
+        let globalY = screenFrame.origin.y + (viewSize.height - rect.origin.y - rect.height)
+        return CGRect(x: globalX, y: globalY, width: rect.width, height: rect.height)
     }
 }

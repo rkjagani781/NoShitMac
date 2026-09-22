@@ -1,70 +1,128 @@
 # NoShitMac
 
-Lightweight Mac menu-bar toolkit — Windows-style window switcher and screenshot editor with custom hotkeys.
+**Lightweight Mac menu-bar toolkit** — Windows-style window switching and screenshots with inline editing.
 
-## Features (Phase 1)
+Built native in Swift. No Dock icon. Runs from the menu bar only.
 
-- **Window Switcher** — Hold `⌥ Tab` to cycle open windows (including fullscreen apps), release to switch
-- **Screenshot** — Region or full-screen capture, auto-copy to clipboard, inline editor (pencil, highlight, crop)
-- **Custom hotkeys** — Rebind any feature from Settings
-- **Menu bar app** — No Dock clutter; optional launch at login
+---
+
+## Features
+
+| Feature | What it does |
+|---|---|
+| **Window Switcher** | Hold `⌥ Tab` to cycle all open windows (including fullscreen & other Spaces), release to switch |
+| **Screenshot** | Capture a region or full screen, auto-copy to clipboard, annotate with pencil / highlight / crop |
+| **Custom Hotkeys** | Rebind any action in Settings |
+| **Launch at Login** | Optional — keep tools available after reboot |
+
+---
 
 ## Requirements
 
-- macOS 13.0 (Ventura) or later
-- Xcode 15+ to build from source
-- Permissions: Accessibility, Screen Recording, Input Monitoring
+- **macOS 14** (Sonoma) or later
+- **Xcode 15+** to build from source
+- **Permissions:** Accessibility · Screen Recording · Input Monitoring
+
+---
 
 ## Quick Start
+
+### 1. Clone & open
 
 ```bash
 git clone https://github.com/rkjagani781/NoShitMac.git
 cd NoShitMac
-brew install xcodegen   # if needed
+brew install xcodegen   # first time only
 xcodegen generate
 open NoShitMac.xcodeproj
 ```
 
-Press **⌘R** in Xcode to run. Grant permissions when prompted (see [PERMISSIONS.md](PERMISSIONS.md)).
+### 2. Run
+
+Press **⌘R** in Xcode.
+
+### 3. Find the app
+
+NoShitMac is a **menu bar app** — there is no Dock icon.
+
+Look for the **⚡ bolt icon** in the top-right menu bar (check the `>>` overflow if hidden).
+
+### 4. Grant permissions
+
+Click **⚡** → click **Grant** for each permission, or enable manually in **System Settings → Privacy & Security**:
+
+- Accessibility
+- Screen Recording
+- Input Monitoring
+
+Details: [PERMISSIONS.md](PERMISSIONS.md)
+
+Quit and relaunch after granting (⌘. in Xcode, then ⌘R again).
+
+---
 
 ## Default Hotkeys
 
-| Action | Default | Configurable |
+| Action | Hotkey | Change in |
 |---|---|---|
 | Window Switcher | `⌥ Tab` | Settings → Hotkeys |
 | Screenshot | `⌥⇧ 4` | Settings → Hotkeys |
 
-## Configuration
+Hold modifier keys while cycling in the switcher; release to confirm.
 
-Settings open from the menu bar icon → **Settings…** or `⌘,`.
+Screenshot mode (region vs full screen): **Settings → Features → Screenshot**.
 
-Hotkeys persist to:
+Config file: `~/Library/Application Support/NoShitMac/config.json`
 
-```
-~/Library/Application Support/NoShitMac/config.json
-```
+---
+
+## Settings
+
+**⚡ menu bar icon → Settings…** (or **⌘,**)
+
+- **General** — Launch at login
+- **Hotkeys** — Rebind actions (conflict warnings for system shortcuts)
+- **Features** — Enable/disable tools, screenshot mode
+
+---
 
 ## Download
 
-Releases: [github.com/rkjagani781/NoShitMac/releases](https://github.com/rkjagani781/NoShitMac/releases)
+Pre-built releases: [github.com/rkjagani781/NoShitMac/releases](https://github.com/rkjagani781/NoShitMac/releases)
 
-Unsigned builds: right-click the app → **Open** the first time (Gatekeeper).
+First launch on unsigned builds: right-click the app → **Open**.
 
-## Architecture
+---
 
-Modular feature system — see [ARCHITECTURE.md](ARCHITECTURE.md).
+## Build Release (.dmg)
 
-## Troubleshooting
+Requires full Xcode:
 
-See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+```bash
+./scripts/build-release.sh
+./scripts/create-dmg.sh 0.1.0
+```
+
+---
+
+## Docs
+
+| Doc | Contents |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Modular `FeatureModule` design |
+| [PERMISSIONS.md](PERMISSIONS.md) | Permission setup guide |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common fixes |
+
+---
 
 ## Roadmap (Phase 2)
 
-- Window switcher: mouse selection, app-only mode, blacklist
+- Window switcher: mouse pick, app-only mode, app blacklist
 - Screenshot: window capture, arrows, history tray
-- Clipboard manager, batch file rename
-- Sparkle auto-update
+- Clipboard manager · batch file rename · auto-update
+
+---
 
 ## License
 
-MIT
+MIT · [Rohit Maheshwari](https://github.com/rkjagani781)

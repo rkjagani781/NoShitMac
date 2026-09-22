@@ -14,6 +14,7 @@ public enum PermissionType: String, CaseIterable, Sendable {
     }
 }
 
+@MainActor
 public protocol FeatureModule: AnyObject {
     var id: String { get }
     var displayName: String { get }
@@ -25,6 +26,7 @@ public protocol FeatureModule: AnyObject {
     func requiredPermissions() -> [PermissionType]
 }
 
+@MainActor
 public struct FeatureServices {
     public let hotkeys: HotkeyService
     public let config: ConfigStore

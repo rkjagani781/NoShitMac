@@ -13,6 +13,7 @@
 		1114DB51A38F5CD34AC943C1 /* WindowInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B0CBD6573171F7122D7993 /* WindowInfoTests.swift */; };
 		122F4937927516ED46956B18 /* CropOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC08E26DD762163BEBC7C01 /* CropOverlayView.swift */; };
 		12CB9B411BD141CA03681119 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA875B8580D78621EC5EA799 /* AppConfig.swift */; };
+		20D9E6AF2FBB6656FA24BEC8 /* ScreenshotDrawingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0B45EB40522A2817199DA3 /* ScreenshotDrawingView.swift */; };
 		297AF9C2B4E972E9D9596A8A /* NoShitMacCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE88F83AF56B613D323828DE /* NoShitMacCore.framework */; };
 		2B9F9ED84F7A2D68AC195C60 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A581D048608447EA094F4F /* main.swift */; };
 		2FD5448B46D41D765C5DA492 /* WindowActivator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD84D3EC239C9261F1978139 /* WindowActivator.swift */; };
@@ -21,6 +22,7 @@
 		6048E64E450CB64715BA334D /* NoShitMacCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DE88F83AF56B613D323828DE /* NoShitMacCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		633BF8B98A51E69606480856 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19131B466290896FF77964B7 /* ConfigStore.swift */; };
 		65B10C0F864BBD2A46638F1B /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2836353C06394981A484261 /* AppCoordinator.swift */; };
+		690027E7088C5EDBEF6315E3 /* ScreenCaptureKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6949391F52D9B8D4FDC218D /* ScreenCaptureKit.framework */; };
 		6E375ECDF76EEA033DEF8F38 /* WindowSwitcherFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE35A535B325EEB6EE5F01B2 /* WindowSwitcherFeature.swift */; };
 		7EA6B5C17A1701BB87911115 /* ScreenshotEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F82EE3151B18BFA6499F9B /* ScreenshotEditorView.swift */; };
 		8645CABEA8557959C98A07FE /* WindowEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639B0A8771B6A85D1D058B92 /* WindowEnumerator.swift */; };
@@ -116,9 +118,11 @@
 		AA875B8580D78621EC5EA799 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		BDD3F8A04B6F64FAA00A5268 /* NoShitMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NoShitMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2836353C06394981A484261 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCoordinator.swift; sourceTree = "<group>"; };
+		CA0B45EB40522A2817199DA3 /* ScreenshotDrawingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotDrawingView.swift; sourceTree = "<group>"; };
 		CB99B75435B8C3DBAC7FE399 /* HotkeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderView.swift; sourceTree = "<group>"; };
 		CD84D3EC239C9261F1978139 /* WindowActivator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowActivator.swift; sourceTree = "<group>"; };
 		D07A2249F8E297F591842763 /* FeatureRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRegistry.swift; sourceTree = "<group>"; };
+		D6949391F52D9B8D4FDC218D /* ScreenCaptureKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenCaptureKit.framework; path = System/Library/Frameworks/ScreenCaptureKit.framework; sourceTree = SDKROOT; };
 		DE35A535B325EEB6EE5F01B2 /* WindowSwitcherFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSwitcherFeature.swift; sourceTree = "<group>"; };
 		DE88F83AF56B613D323828DE /* NoShitMacCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NoShitMacCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E582400698A4075CD8DFE576 /* SwitcherOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitcherOverlayView.swift; sourceTree = "<group>"; };
@@ -133,6 +137,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				297AF9C2B4E972E9D9596A8A /* NoShitMacCore.framework in Frameworks */,
+				690027E7088C5EDBEF6315E3 /* ScreenCaptureKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,6 +159,14 @@
 				F7985F2FB50F93476112218C /* HotkeyBinding.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		0D2A924DCEBD2C774D0241B8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D6949391F52D9B8D4FDC218D /* ScreenCaptureKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		1FC2BF055956C5520526097F /* WindowSwitcher */ = {
@@ -244,6 +257,7 @@
 				A26C37124DD4FDAE6DE45719 /* CaptureService.swift */,
 				9BC08E26DD762163BEBC7C01 /* CropOverlayView.swift */,
 				194F38700024B6C3208AD858 /* RegionSelectionView.swift */,
+				CA0B45EB40522A2817199DA3 /* ScreenshotDrawingView.swift */,
 				55F82EE3151B18BFA6499F9B /* ScreenshotEditorView.swift */,
 				3374B50437E21F5244D39C55 /* ScreenshotFeature.swift */,
 			);
@@ -258,6 +272,7 @@
 				B788812085F19C0152706A0A /* NoShitMacAgent */,
 				ED4CB0B6E9CF38C38F40E258 /* NoShitMacCore */,
 				FB2252EEF9909A9D93B9ED91 /* Tests */,
+				0D2A924DCEBD2C774D0241B8 /* Frameworks */,
 				B463DADC75A071648D28AF3F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -442,6 +457,7 @@
 				8E97BC747F35EF9E234D6B71 /* MenuBarView.swift in Sources */,
 				D79430FCBCA2F0E77DB18E0A /* NoShitMacApp.swift in Sources */,
 				C79275419CA6DFBD4AD2E016 /* RegionSelectionView.swift in Sources */,
+				20D9E6AF2FBB6656FA24BEC8 /* ScreenshotDrawingView.swift in Sources */,
 				7EA6B5C17A1701BB87911115 /* ScreenshotEditorView.swift in Sources */,
 				F514FA669663FB040E8B18DE /* ScreenshotFeature.swift in Sources */,
 				08B75CF71343BCD267C5E5DC /* SettingsView.swift in Sources */,
@@ -549,7 +565,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -652,7 +668,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

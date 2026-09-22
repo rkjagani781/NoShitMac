@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 import NoShitMacCore
 import SwiftUI
 
@@ -11,12 +10,6 @@ final class ScreenshotFeature: FeatureModule, ObservableObject {
 
     private var services: FeatureServices?
     private var binding = HotkeyBinding.screenshotDefault
-    private var captureMode: CaptureMode = .region
-
-    enum CaptureMode {
-        case region
-        case fullScreen
-    }
 
     func requiredPermissions() -> [PermissionType] {
         [.screenRecording, .inputMonitoring]
@@ -38,26 +31,15 @@ final class ScreenshotFeature: FeatureModule, ObservableObject {
     }
 
     func settingsView() -> AnyView {
-        AnyView(
-            VStack(alignment: .leading, spacing: 8) {
-                Toggle("Enabled", isOn: Binding(
-                    get: { self.isEnabled },
-                    set: { newValue in
-                        self.isEnabled = newValue
-                        self.services?.config.update { $0.screenshotEnabled = newValue }
-                        NotificationCenter.default.post(name: .featureConfigChanged, object: nil)
-                    }
-                ))
-                Picker("Default mode", selection: $captureMode) {
-                    Text("Region").tag(CaptureMode.region)
-                    Text("Full Screen").tag(CaptureMode.fullScreen)
-                }
-                .pickerStyle(.segmented)
-                Text("Default: ⌥⇧4 · Auto-copy to clipboard")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        )
+        AnyView(ScreenshotFeatureSettings(feature: self))
+    }
+
+    fileprivate var captureMode: ScreenshotCaptureMode {
+        services?.config.config.screenshotCaptureMode ?? .region
+    }
+
+    fileprivate func setCaptureMode(_ mode: ScreenshotCaptureMode) {
+        services?.config.update { $0.screenshotCaptureMode = mode }
     }
 
     private func handleHotkey(_ event: HotkeyEvent) {
@@ -75,8 +57,10 @@ final class ScreenshotFeature: FeatureModule, ObservableObject {
     }
 
     private func beginRegionSelection() {
+        guard let screen = NSScreen.main else { return }
         services?.overlay.showFullscreen(
             content: RegionSelectionView(
+                screen: screen,
                 onSelect: { [weak self] rect in
                     self?.services?.overlay.dismiss()
                     Task { await self?.captureRegion(rect) }
@@ -121,5 +105,37 @@ final class ScreenshotFeature: FeatureModule, ObservableObject {
             ),
             size: NSSize(width: 860, height: 620)
         )
+    }
+}
+
+private struct ScreenshotFeatureSettings: View {
+    @ObservedObject var feature: ScreenshotFeature
+    @EnvironmentObject private var config: ConfigStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Enabled", isOn: Binding(
+                get: { feature.isEnabled },
+                set: { newValue in
+                    feature.isEnabled = newValue
+                    config.update { $0.screenshotEnabled = newValue }
+                    NotificationCenter.default.post(name: .featureConfigChanged, object: nil)
+                }
+            ))
+            Picker("Default mode", selection: Binding(
+                get: { config.config.screenshotCaptureMode },
+                set: { newValue in
+                    config.update { $0.screenshotCaptureMode = newValue }
+                }
+            )) {
+                ForEach(ScreenshotCaptureMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text("Default: ⌥⇧4 · Auto-copy to clipboard")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }
