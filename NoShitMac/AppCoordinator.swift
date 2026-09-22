@@ -83,16 +83,18 @@ final class AppCoordinator: ObservableObject {
 
     private func cleanupPrompt(for preview: WindowCleanupService.CleanupPreview) -> String {
         if preview.candidates.isEmpty {
-            return "No minimized or hidden background windows were found."
+            return "No background app windows were found to clean up."
         }
 
         let lines = preview.candidates.prefix(8).map { "• \($0.ownerName): \($0.title)" }
-        var message = "Close \(preview.candidates.count) inactive window(s) from background apps?\n\n"
+        var message = "Close \(preview.candidates.count) window(s) from background apps?\n\n"
         message += lines.joined(separator: "\n")
         if preview.candidates.count > 8 {
             message += "\n• and \(preview.candidates.count - 8) more…"
         }
-        message += "\n\nYour frontmost app will not be affected."
+        if let protectedAppName = preview.protectedAppName {
+            message += "\n\n\(protectedAppName) will not be affected."
+        }
         return message
     }
 

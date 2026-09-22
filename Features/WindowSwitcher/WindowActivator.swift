@@ -4,7 +4,15 @@ import ApplicationServices
 enum WindowActivator {
     static func close(_ window: WindowInfo) -> Bool {
         guard let axWindow = findAXWindow(for: window) else { return false }
-        return AXUIElementPerformAction(axWindow, "AXClose" as CFString) == .success
+        AXUIElementSetMessagingTimeout(axWindow, 0.25)
+
+        if performClose(axWindow) { return true }
+
+        // Some minimized or off-space windows only expose a working close button after unminimizing.
+        unminimize(axWindow)
+        if performClose(axWindow) { return true }
+        raiseAndFocus(axWindow)
+        return performClose(axWindow)
     }
 
     static func activate(_ window: WindowInfo) {
@@ -13,21 +21,42 @@ enum WindowActivator {
         app.activate(options: [.activateAllWindows])
 
         guard let axWindow = findAXWindow(for: window) else {
-            // Fallback: activating the app may switch Spaces to its key window.
             return
         }
 
         unminimize(axWindow)
         raiseAndFocus(axWindow)
 
-        // Second pass after unminimize animation settles.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             raiseAndFocus(axWindow)
         }
     }
 
+    private static func performClose(_ axWindow: AXUIElement) -> Bool {
+        if AXUIElementPerformAction(axWindow, "AXClose" as CFString) == .success {
+            return true
+        }
+
+        var closeButtonRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axWindow, kAXCloseButtonAttribute as CFString, &closeButtonRef) == .success,
+              let closeButtonRef else {
+            return false
+        }
+
+        let closeButton = closeButtonRef as! AXUIElement
+        if AXUIElementPerformAction(closeButton, kAXPressAction as CFString) == .success {
+            return true
+        }
+
+        // Last resort: mark the window main/focused so the close button becomes actionable.
+        AXUIElementSetAttributeValue(axWindow, kAXMainAttribute as CFString, kCFBooleanTrue)
+        return AXUIElementPerformAction(closeButton, kAXPressAction as CFString) == .success
+    }
+
     private static func findAXWindow(for window: WindowInfo) -> AXUIElement? {
         let appElement = AXUIElementCreateApplication(window.ownerPID)
+        AXUIElementSetMessagingTimeout(appElement, 0.25)
+
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value) == .success,
               let axWindows = value as? [AXUIElement] else {
@@ -42,7 +71,7 @@ enum WindowActivator {
             if matchesTitle(axWindow, target: window.title) { return axWindow }
         }
 
-        return axWindows.first
+        return nil
     }
 
     private static func matchesWindowID(_ axWindow: AXUIElement, target: CGWindowID) -> Bool {

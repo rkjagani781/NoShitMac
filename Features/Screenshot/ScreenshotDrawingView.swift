@@ -4,10 +4,14 @@ import AppKit
 final class ScreenshotDrawingView: NSView {
     struct Stroke {
         let tool: EditorTool
+        let color: NSColor
         var points: [NSPoint]
     }
 
     var activeTool: EditorTool = .pencil
+    var pencilColor: NSColor = .systemRed
+    var highlightColor: NSColor = NSColor.systemYellow.withAlphaComponent(0.45)
+
     private(set) var strokes: [Stroke] = []
     private var currentStroke: Stroke?
 
@@ -17,7 +21,7 @@ final class ScreenshotDrawingView: NSView {
     override func mouseDown(with event: NSEvent) {
         guard activeTool == .pencil || activeTool == .highlight else { return }
         let point = convert(event.locationInWindow, from: nil)
-        currentStroke = Stroke(tool: activeTool, points: [point])
+        currentStroke = Stroke(tool: activeTool, color: strokeColor(for: activeTool), points: [point])
         needsDisplay = true
     }
 
@@ -62,6 +66,14 @@ final class ScreenshotDrawingView: NSView {
         }
     }
 
+    private func strokeColor(for tool: EditorTool) -> NSColor {
+        switch tool {
+        case .pencil: return pencilColor
+        case .highlight: return highlightColor
+        case .crop: return .clear
+        }
+    }
+
     private func draw(_ stroke: Stroke) {
         guard stroke.points.count > 1 else { return }
 
@@ -69,15 +81,7 @@ final class ScreenshotDrawingView: NSView {
         path.lineWidth = stroke.tool == .highlight ? 20 : 3
         path.lineCapStyle = .round
         path.lineJoinStyle = .round
-
-        switch stroke.tool {
-        case .pencil:
-            NSColor.red.setStroke()
-        case .highlight:
-            NSColor.yellow.withAlphaComponent(0.45).setStroke()
-        case .crop:
-            return
-        }
+        stroke.color.setStroke()
 
         path.move(to: stroke.points[0])
         for point in stroke.points.dropFirst() {
@@ -104,12 +108,7 @@ final class ScreenshotDrawingView: NSView {
             path.lineWidth = (stroke.tool == .highlight ? 20 : 3) * (imageSize.width / fit.width)
             path.lineCapStyle = .round
             path.lineJoinStyle = .round
-
-            switch stroke.tool {
-            case .pencil: NSColor.red.setStroke()
-            case .highlight: NSColor.yellow.withAlphaComponent(0.45).setStroke()
-            case .crop: continue
-            }
+            stroke.color.setStroke()
 
             let mapped = stroke.points.map { mapPointToImage($0, fittedRect: fit, imageSize: imageSize) }
             path.move(to: mapped[0])
@@ -138,4 +137,25 @@ final class ScreenshotDrawingView: NSView {
         let ny = (point.y - fittedRect.origin.y) / fittedRect.height
         return NSPoint(x: nx * imageSize.width, y: ny * imageSize.height)
     }
+}
+
+enum EditorColorPalette {
+    static let pencil: [NSColor] = [
+        .systemRed,
+        .systemOrange,
+        .systemYellow,
+        .systemGreen,
+        .systemBlue,
+        .systemPurple,
+        .white,
+        .black
+    ]
+
+    static let highlight: [NSColor] = [
+        NSColor.systemYellow.withAlphaComponent(0.45),
+        NSColor.systemGreen.withAlphaComponent(0.4),
+        NSColor.systemCyan.withAlphaComponent(0.4),
+        NSColor.systemPink.withAlphaComponent(0.4),
+        NSColor.systemOrange.withAlphaComponent(0.4)
+    ]
 }

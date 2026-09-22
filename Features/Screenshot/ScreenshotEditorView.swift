@@ -19,6 +19,16 @@ enum EditorTool: String, CaseIterable {
 final class EditorCanvasController: ObservableObject {
     let drawingView = ScreenshotDrawingView()
 
+    var pencilColor: NSColor {
+        get { drawingView.pencilColor }
+        set { drawingView.pencilColor = newValue }
+    }
+
+    var highlightColor: NSColor {
+        get { drawingView.highlightColor }
+        set { drawingView.highlightColor = newValue }
+    }
+
     func applyTool(_ tool: EditorTool) {
         drawingView.activeTool = tool
     }
@@ -49,6 +59,8 @@ struct ScreenshotEditorView: View {
     @State private var displayImage: NSImage
     @State private var canvasSize: CGSize = .zero
     @State private var copied = false
+    @State private var pencilColorIndex = 0
+    @State private var highlightColorIndex = 0
 
     init(
         sourceImage: NSImage,
@@ -77,6 +89,8 @@ struct ScreenshotEditorView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             canvasController.applyTool(selectedTool)
+            canvasController.pencilColor = EditorColorPalette.pencil[pencilColorIndex]
+            canvasController.highlightColor = EditorColorPalette.highlight[highlightColorIndex]
         }
     }
 
@@ -108,6 +122,24 @@ struct ScreenshotEditorView: View {
                 }
                 .disabled(selectedTool != .crop || cropRect == nil)
                 .buttonStyle(.borderedProminent)
+            }
+
+            if selectedTool == .pencil {
+                EditorColorPaletteView(
+                    colors: EditorColorPalette.pencil,
+                    selectedIndex: $pencilColorIndex
+                ) { color in
+                    canvasController.pencilColor = color
+                }
+            }
+
+            if selectedTool == .highlight {
+                EditorColorPaletteView(
+                    colors: EditorColorPalette.highlight,
+                    selectedIndex: $highlightColorIndex
+                ) { color in
+                    canvasController.highlightColor = color
+                }
             }
 
             Spacer()
@@ -230,6 +262,38 @@ struct ScreenshotEditorView: View {
         canvasController.clearDrawing()
         selectedTool = .pencil
         canvasController.applyTool(.pencil)
+    }
+}
+
+private struct EditorColorPaletteView: View {
+    let colors: [NSColor]
+    @Binding var selectedIndex: Int
+    let onSelect: (NSColor) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(colors.indices, id: \.self) { index in
+                let color = colors[index]
+                Button {
+                    selectedIndex = index
+                    onSelect(color)
+                } label: {
+                    Circle()
+                        .fill(Color(nsColor: color))
+                        .frame(width: 18, height: 18)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(
+                                    selectedIndex == index ? Color.accentColor : Color.primary.opacity(0.15),
+                                    lineWidth: selectedIndex == index ? 2 : 1
+                                )
+                        }
+                }
+                .buttonStyle(.plain)
+                .help("Select color")
+            }
+        }
+        .padding(.horizontal, 4)
     }
 }
 

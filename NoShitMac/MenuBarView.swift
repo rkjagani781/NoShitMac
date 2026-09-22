@@ -23,7 +23,7 @@ struct MenuBarView: View {
             } label: {
                 Label("Clean Up Windows", systemImage: "xmark.bin")
             }
-            .help("Close minimized and hidden windows from background apps")
+            .help("Close windows from background apps (frontmost app is protected)")
 
             Button("Settings…") {
                 coordinator.openSettings(using: openSettings)
