@@ -1,0 +1,1 @@
+// NoShitMacCore framework entry point.

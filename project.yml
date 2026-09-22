@@ -1,0 +1,75 @@
+name: NoShitMac
+options:
+  bundleIdPrefix: com.rkjagani781
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+targets:
+  NoShitMacCore:
+    type: framework
+    platform: macOS
+    sources:
+      - path: NoShitMacCore
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.rkjagani781.NoShitMacCore
+      GENERATE_INFOPLIST_FILE: YES
+      CURRENT_PROJECT_VERSION: 1
+      MARKETING_VERSION: 0.1.0
+
+  NoShitMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: NoShitMac
+      - path: Features
+    dependencies:
+      - target: NoShitMacCore
+        embed: true
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.rkjagani781.NoShitMac
+      INFOPLIST_FILE: NoShitMac/Info.plist
+      CODE_SIGN_ENTITLEMENTS: NoShitMac/NoShitMac.entitlements
+      LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+      CURRENT_PROJECT_VERSION: 1
+      MARKETING_VERSION: 0.1.0
+    preBuildScripts: []
+
+  NoShitMacTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: NoShitMac
+      - target: NoShitMacCore
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.rkjagani781.NoShitMacTests
+      GENERATE_INFOPLIST_FILE: YES
+
+  NoShitMacAgent:
+    type: tool
+    platform: macOS
+    sources:
+      - path: NoShitMacAgent
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.rkjagani781.NoShitMacAgent
+      GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  NoShitMac:
+    build:
+      targets:
+        NoShitMac: all
+        NoShitMacCore: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - NoShitMacTests
