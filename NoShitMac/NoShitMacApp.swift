@@ -5,7 +5,7 @@ struct NoShitMacApp: App {
     @StateObject private var coordinator = AppCoordinator()
 
     var body: some Scene {
-        MenuBarExtra("NoShitMac", systemImage: "bolt.fill") {
+        MenuBarExtra("NoShitMac", image: "MenuBarIcon") {
             MenuBarView()
                 .environmentObject(coordinator)
                 .environmentObject(coordinator.configStore)

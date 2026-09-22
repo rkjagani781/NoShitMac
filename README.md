@@ -1,8 +1,19 @@
-# NoShitMac
+<p align="center">
+  <img src="docs/assets/logo-1024.png" alt="NoShitMac — The Helix Tab Mark" width="128" height="128">
+</p>
 
-**Lightweight Mac menu-bar toolkit** — Windows-style window switching and screenshots with inline editing.
+<h1 align="center">NoShitMac</h1>
 
-Built native in Swift. No Dock icon. Runs from the menu bar only.
+<p align="center"><strong>Two windows. One snap. Zero ceremony.</strong></p>
+
+<p align="center">
+  Lightweight Mac menu-bar toolkit — Windows-style window switching and screenshots with inline editing.<br>
+  Built native in Swift. No Dock icon. Runs from the menu bar only.
+</p>
+
+### The Helix Tab Mark
+
+The logo is an original symbol: two interlocking window panes twisted mid-switch. The negative space between them forms a **void-bolt** — speed implied by geometry, not a stock lightning icon. See [BRAND.md](BRAND.md) for colors, voice, and asset paths.
 
 ---
 
@@ -109,6 +120,7 @@ Requires full Xcode:
 
 | Doc | Contents |
 |---|---|
+| [BRAND.md](BRAND.md) | Logo, tagline, colors, voice |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Modular `FeatureModule` design |
 | [PERMISSIONS.md](PERMISSIONS.md) | Permission setup guide |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common fixes |
