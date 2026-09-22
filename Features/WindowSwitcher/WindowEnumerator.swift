@@ -1,9 +1,82 @@
 import AppKit
+import ApplicationServices
 import CoreGraphics
+import ScreenCaptureKit
 
 enum WindowEnumerator {
-    /// Lists user windows across all Spaces (including fullscreen and minimized).
+    /// Fast path used when the hotkey is pressed. This does not contact apps.
+    static func enumerateFast() -> [WindowInfo] {
+        sortWindows(deduplicated(enumerateFromCG()))
+    }
+
+    /// Comprehensive path intended for a background task.
     static func enumerate() -> [WindowInfo] {
+        var byID: [CGWindowID: WindowInfo] = [:]
+
+        for window in enumerateFromCG() {
+            byID[window.id] = window
+        }
+
+        if AXIsProcessTrusted() {
+            for window in enumerateFromAX() {
+                if let existing = byID[window.id] {
+                    byID[window.id] = prefer(existing, window)
+                } else {
+                    byID[window.id] = window
+                }
+            }
+        }
+
+        return sortWindows(deduplicated(Array(byID.values)))
+    }
+
+    static func merged(_ primary: [WindowInfo], with secondary: [WindowInfo]) -> [WindowInfo] {
+        var byID = Dictionary(uniqueKeysWithValues: secondary.map { ($0.id, $0) })
+        for window in primary {
+            byID[window.id] = window
+        }
+        return sortWindows(deduplicated(Array(byID.values)))
+    }
+
+    static func thumbnail(
+        for window: WindowInfo,
+        maxSize: NSSize = NSSize(width: 200, height: 120)
+    ) async -> NSImage? {
+        if window.isMinimized, let icon = window.appIcon {
+            return icon
+        }
+
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
+            guard let capturedWindow = content.windows.first(where: { $0.windowID == window.id }) else {
+                return window.appIcon
+            }
+
+            let sourceSize = capturedWindow.frame.size
+            let ratio = min(maxSize.width / sourceSize.width, maxSize.height / sourceSize.height, 1)
+            let configuration = SCStreamConfiguration()
+            configuration.width = max(Int(sourceSize.width * ratio * 2), 1)
+            configuration.height = max(Int(sourceSize.height * ratio * 2), 1)
+            configuration.showsCursor = false
+            configuration.ignoreShadowsSingleWindow = true
+
+            let filter = SCContentFilter(desktopIndependentWindow: capturedWindow)
+            let cgImage = try await SCScreenshotManager.captureImage(
+                contentFilter: filter,
+                configuration: configuration
+            )
+            return NSImage(
+                cgImage: cgImage,
+                size: NSSize(width: cgImage.width / 2, height: cgImage.height / 2)
+            )
+        } catch {
+            return window.appIcon
+        }
+    }
+
+    // MARK: - CGWindowList
+
+    private static func enumerateFromCG() -> [WindowInfo] {
         guard let rawList = CGWindowListCopyWindowInfo(
             [.optionAll, .excludeDesktopElements],
             kCGNullWindowID
@@ -12,6 +85,7 @@ enum WindowEnumerator {
         }
 
         var windows: [WindowInfo] = []
+        var activationPolicies: [pid_t: NSApplication.ActivationPolicy] = [:]
 
         for entry in rawList {
             guard
@@ -33,13 +107,22 @@ enum WindowEnumerator {
                 height: boundsDict["Height"] ?? 0
             )
 
-            // Include minimized windows (often 0×0 bounds) — restore on activate.
+            let policy = activationPolicies[ownerPID] ?? {
+                let value = NSRunningApplication(processIdentifier: ownerPID)?.activationPolicy ?? .prohibited
+                activationPolicies[ownerPID] = value
+                return value
+            }()
+            guard policy == .regular else { continue }
+
             let isOnScreen = entry[kCGWindowIsOnscreen as String] as? Bool ?? false
             let isMinimized = !isOnScreen && bounds.width <= 1 && bounds.height <= 1
-            if !isMinimized && (bounds.width < 40 || bounds.height < 40) { continue }
+            // optionAll contains menu bars, stale compositor surfaces, and helper panels.
+            // Real application windows are supplied by AX below; keep only plausible
+            // fast-path windows here.
+            if !isMinimized && (bounds.width < 120 || bounds.height < 80) { continue }
 
             let alpha = entry[kCGWindowAlpha as String] as? Double ?? 1
-            if alpha < 0.01 { continue }
+            if alpha <= 0 { continue }
 
             windows.append(WindowInfo(
                 id: windowID,
@@ -53,59 +136,169 @@ enum WindowEnumerator {
             ))
         }
 
-        return sortWindows(deduplicated(windows))
+        return windows
     }
 
-    static func thumbnail(for window: WindowInfo, maxSize: NSSize = NSSize(width: 200, height: 120)) -> NSImage? {
-        if window.isMinimized, let icon = window.appIcon {
-            return icon
+    // MARK: - Accessibility
+
+    private static func enumerateFromAX() -> [WindowInfo] {
+        var windows: [WindowInfo] = []
+
+        let apps = NSWorkspace.shared.runningApplications.filter { app in
+            guard app.activationPolicy == .regular else { return false }
+
+            let name = app.localizedName ?? app.bundleIdentifier ?? ""
+            return !shouldSkipOwner(name)
         }
 
-        guard let cgImage = CGWindowListCreateImage(
-            .null,
-            .optionIncludingWindow,
-            window.id,
-            [.boundsIgnoreFraming, .bestResolution]
-        ) else {
-            return window.appIcon
+        for app in apps {
+            let pid = app.processIdentifier
+            let ownerName = app.localizedName ?? app.bundleIdentifier ?? "Unknown"
+            let appElement = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(appElement, 0.05)
+
+            guard let axWindows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement] else {
+                continue
+            }
+
+            for axWindow in axWindows {
+                if shouldSkipAXWindow(axWindow) { continue }
+                guard let windowID = axWindowID(axWindow) else { continue }
+
+                let title = (copyAttribute(axWindow, kAXTitleAttribute as CFString) as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let resolvedTitle = (title?.isEmpty == false) ? title! : ownerName
+                let minimized = (copyAttribute(axWindow, kAXMinimizedAttribute as CFString) as? Bool) ?? false
+                let bounds = axWindowBounds(axWindow) ?? .zero
+                let isMinimized = minimized || (!bounds.isEmpty && bounds.width <= 1 && bounds.height <= 1)
+
+                windows.append(WindowInfo(
+                    id: windowID,
+                    ownerPID: pid,
+                    ownerName: ownerName,
+                    title: resolvedTitle,
+                    bounds: bounds,
+                    layer: 0,
+                    isOnScreen: !minimized && bounds.width > 0 && bounds.height > 0,
+                    isMinimized: isMinimized
+                ))
+            }
         }
 
-        let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        return image.resized(toFit: maxSize)
+        return windows
     }
+
+    // MARK: - Filters
 
     private static func shouldSkipOwner(_ name: String) -> Bool {
         let blocked = [
             "Window Server", "Dock", "Control Center", "Notification Center",
-            "SystemUIServer", "Wallpaper", "NoShitMac"
+            "SystemUIServer", "Wallpaper", "NoShitMac", "loginwindow", "AutoFill",
+            "Open and Save Panel Service", "CursorUIViewService"
         ]
         return blocked.contains(name)
     }
 
-    private static func deduplicated(_ windows: [WindowInfo]) -> [WindowInfo] {
-        var seen = Set<CGWindowID>()
-        return windows.filter { seen.insert($0.id).inserted }
+    private static func shouldSkipAXWindow(_ window: AXUIElement) -> Bool {
+        if let role = copyAttribute(window, kAXRoleAttribute as CFString) as? String,
+           role != kAXWindowRole as String {
+            return true
+        }
+
+        if let subrole = copyAttribute(window, kAXSubroleAttribute as CFString) as? String {
+            let allowedSubroles = [
+                kAXStandardWindowSubrole as String,
+                kAXDialogSubrole as String
+            ]
+            if !allowedSubroles.contains(subrole) { return true }
+        }
+
+        return false
     }
 
-    /// On-screen windows first, then minimized / other Spaces.
+    // MARK: - Merge / sort
+
+    private static func deduplicated(_ windows: [WindowInfo]) -> [WindowInfo] {
+        var seenIDs = Set<CGWindowID>()
+        // Window IDs, not titles or bounds, define identity. Multiple Chrome windows
+        // can legitimately have the same title and occupy the exact same frame.
+        return windows.filter { seenIDs.insert($0.id).inserted }
+    }
+
+    /// Prefer CG on-screen/minimized flags; keep AX title when CG title is generic.
+    private static func prefer(_ cg: WindowInfo, _ ax: WindowInfo) -> WindowInfo {
+        let title: String
+        if cg.title == cg.ownerName, ax.title != ax.ownerName {
+            title = ax.title
+        } else if !ax.title.isEmpty {
+            title = ax.title
+        } else {
+            title = cg.title
+        }
+
+        return WindowInfo(
+            id: cg.id,
+            ownerPID: cg.ownerPID,
+            ownerName: cg.ownerName,
+            title: title,
+            bounds: cg.bounds.width > 0 ? cg.bounds : ax.bounds,
+            layer: cg.layer,
+            isOnScreen: cg.isOnScreen,
+            isMinimized: cg.isMinimized || ax.isMinimized
+        )
+    }
+
     private static func sortWindows(_ windows: [WindowInfo]) -> [WindowInfo] {
         windows.sorted { lhs, rhs in
             if lhs.isOnScreen != rhs.isOnScreen { return lhs.isOnScreen && !rhs.isOnScreen }
             if lhs.isMinimized != rhs.isMinimized { return !lhs.isMinimized && rhs.isMinimized }
+            if lhs.ownerName != rhs.ownerName {
+                return lhs.ownerName.localizedCaseInsensitiveCompare(rhs.ownerName) == .orderedAscending
+            }
             return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
         }
     }
-}
 
-private extension NSImage {
-    func resized(toFit maxSize: NSSize) -> NSImage {
-        guard size.width > 0, size.height > 0 else { return self }
-        let ratio = min(maxSize.width / size.width, maxSize.height / size.height, 1)
-        let newSize = NSSize(width: size.width * ratio, height: size.height * ratio)
-        let img = NSImage(size: newSize)
-        img.lockFocus()
-        draw(in: NSRect(origin: .zero, size: newSize), from: .zero, operation: .copy, fraction: 1)
-        img.unlockFocus()
-        return img
+    // MARK: - AX helpers
+
+    private static func copyAttribute(_ element: AXUIElement, _ attribute: CFString) -> CFTypeRef? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute, &value) == .success else {
+            return nil
+        }
+        return value
+    }
+
+    private static func axWindowID(_ window: AXUIElement) -> CGWindowID? {
+        guard let number = copyAttribute(window, "_AXWindowNumber" as CFString) as? Int, number > 0 else {
+            return nil
+        }
+        return CGWindowID(number)
+    }
+
+    private static func axWindowBounds(_ window: AXUIElement) -> CGRect? {
+        guard
+            let origin = point(from: window, attribute: kAXPositionAttribute as CFString),
+            let size = size(from: window, attribute: kAXSizeAttribute as CFString)
+        else {
+            return nil
+        }
+        return CGRect(origin: origin, size: size)
+    }
+
+    private static func point(from element: AXUIElement, attribute: CFString) -> CGPoint? {
+        guard let value = copyAttribute(element, attribute),
+              CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        var point = CGPoint.zero
+        guard AXValueGetValue(value as! AXValue, .cgPoint, &point) else { return nil }
+        return point
+    }
+
+    private static func size(from element: AXUIElement, attribute: CFString) -> CGSize? {
+        guard let value = copyAttribute(element, attribute),
+              CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        var size = CGSize.zero
+        guard AXValueGetValue(value as! AXValue, .cgSize, &size) else { return nil }
+        return size
     }
 }

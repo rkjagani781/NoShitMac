@@ -24,6 +24,7 @@
 		65B10C0F864BBD2A46638F1B /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2836353C06394981A484261 /* AppCoordinator.swift */; };
 		690027E7088C5EDBEF6315E3 /* ScreenCaptureKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6949391F52D9B8D4FDC218D /* ScreenCaptureKit.framework */; };
 		6E375ECDF76EEA033DEF8F38 /* WindowSwitcherFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE35A535B325EEB6EE5F01B2 /* WindowSwitcherFeature.swift */; };
+		7DAC1462477732065183C2CF /* WindowCleanupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B0BF0C72AD86A17C6A774D2 /* WindowCleanupService.swift */; };
 		7EA6B5C17A1701BB87911115 /* ScreenshotEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55F82EE3151B18BFA6499F9B /* ScreenshotEditorView.swift */; };
 		8645CABEA8557959C98A07FE /* WindowEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639B0A8771B6A85D1D058B92 /* WindowEnumerator.swift */; };
 		86D500186C1014C0A2878459 /* NoShitMacCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F970FD5659E366CDF97CC72 /* NoShitMacCore.swift */; };
@@ -104,6 +105,7 @@
 		55F06C130E8A8CD80F484F9E /* NoShitMacAgent */ = {isa = PBXFileReference; includeInIndex = 0; path = NoShitMacAgent; sourceTree = BUILT_PRODUCTS_DIR; };
 		55F82EE3151B18BFA6499F9B /* ScreenshotEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotEditorView.swift; sourceTree = "<group>"; };
 		5739668272749B5086BEA68B /* PermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionService.swift; sourceTree = "<group>"; };
+		5B0BF0C72AD86A17C6A774D2 /* WindowCleanupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCleanupService.swift; sourceTree = "<group>"; };
 		639B0A8771B6A85D1D058B92 /* WindowEnumerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowEnumerator.swift; sourceTree = "<group>"; };
 		6617ED93CB3948DDC39CF52C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		6A2B9287111A3866148E483E /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -200,6 +202,14 @@
 			path = NoShitMacCoreTests;
 			sourceTree = "<group>";
 		};
+		588B145146A29228D5C880CB /* WindowCleanup */ = {
+			isa = PBXGroup;
+			children = (
+				5B0BF0C72AD86A17C6A774D2 /* WindowCleanupService.swift */,
+			);
+			path = WindowCleanup;
+			sourceTree = "<group>";
+		};
 		83AD2B06DF79BC27A8285E77 /* NoShitMac */ = {
 			isa = PBXGroup;
 			children = (
@@ -219,6 +229,7 @@
 			isa = PBXGroup;
 			children = (
 				B8958BDE1D32FD8B96558537 /* Screenshot */,
+				588B145146A29228D5C880CB /* WindowCleanup */,
 				1FC2BF055956C5520526097F /* WindowSwitcher */,
 			);
 			path = Features;
@@ -463,6 +474,7 @@
 				08B75CF71343BCD267C5E5DC /* SettingsView.swift in Sources */,
 				4BED347212E115D948B8714D /* SwitcherOverlayView.swift in Sources */,
 				2FD5448B46D41D765C5DA492 /* WindowActivator.swift in Sources */,
+				7DAC1462477732065183C2CF /* WindowCleanupService.swift in Sources */,
 				8645CABEA8557959C98A07FE /* WindowEnumerator.swift in Sources */,
 				D704137E6021E0AACD4B32D7 /* WindowInfo.swift in Sources */,
 				6E375ECDF76EEA033DEF8F38 /* WindowSwitcherFeature.swift in Sources */,

@@ -16,6 +16,9 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
     private var isActive = false
     private var lastModifierFlags: NSEvent.ModifierFlags = []
     private var binding = HotkeyBinding.windowSwitcherDefault
+    private var cachedWindows: [WindowInfo] = []
+    private var catalogTask: Task<Void, Never>?
+    private var thumbnailTask: Task<Void, Never>?
 
     func requiredPermissions() -> [PermissionType] {
         [.accessibility, .screenRecording, .inputMonitoring]
@@ -30,9 +33,12 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
                 self?.handleHotkey(event)
             }
         }
+        refreshWindowCatalog(updateActiveSession: false)
     }
 
     func stop() {
+        catalogTask?.cancel()
+        thumbnailTask?.cancel()
         dismissOverlay()
         services?.hotkeys.unregister(id: id)
     }
@@ -77,35 +83,43 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
             lastModifierFlags = modifiers
 
         case .flagsChanged(let modifiers):
-            if isActive, binding.anyRequiredModifierReleased(from: lastModifierFlags, to: modifiers) {
+            if isActive, !binding.allModifiersHeld(modifiers) {
                 confirmSelection()
             }
             lastModifierFlags = modifiers
 
-        case .keyUp:
-            break
+        case .keyUp(let keyCode, _):
+            if isActive, binding.modifiers.isEmpty, keyCode == binding.keyCode {
+                confirmSelection()
+            }
         }
     }
 
     private func beginSwitching(modifiers: NSEvent.ModifierFlags) {
         isActive = true
         lastModifierFlags = modifiers
-        windows = WindowEnumerator.enumerate()
+        // AX catalog contains logical application windows. The CG snapshot is only a
+        // first-launch fallback because it also exposes browser compositor surfaces.
+        windows = cachedWindows.isEmpty ? WindowEnumerator.enumerateFast() : cachedWindows
         selectedIndex = 0
-        loadThumbnails()
+        thumbnails.removeAll(keepingCapacity: true)
         showOverlay()
+        requestSelectedThumbnail()
+        refreshWindowCatalog(updateActiveSession: true)
     }
 
     private func cycleForward() {
         guard !windows.isEmpty else { return }
         selectedIndex = (selectedIndex + 1) % windows.count
         refreshOverlay()
+        requestSelectedThumbnail()
     }
 
     private func cycleBackward() {
         guard !windows.isEmpty else { return }
         selectedIndex = (selectedIndex - 1 + windows.count) % windows.count
         refreshOverlay()
+        requestSelectedThumbnail()
     }
 
     private func confirmSelection() {
@@ -118,10 +132,43 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
         WindowActivator.activate(window)
     }
 
-    private func loadThumbnails() {
-        thumbnails.removeAll()
-        for window in windows.prefix(20) {
-            thumbnails[window.id] = WindowEnumerator.thumbnail(for: window)
+    private func refreshWindowCatalog(updateActiveSession: Bool) {
+        catalogTask?.cancel()
+        catalogTask = Task { [weak self] in
+            let refreshed = await Task.detached(priority: .userInitiated) {
+                WindowEnumerator.enumerate()
+            }.value
+            guard !Task.isCancelled, let self else { return }
+
+            self.cachedWindows = refreshed
+            guard updateActiveSession, self.isActive else { return }
+
+            let selectedID = self.windows.indices.contains(self.selectedIndex)
+                ? self.windows[self.selectedIndex].id
+                : nil
+            self.windows = refreshed.isEmpty ? WindowEnumerator.enumerateFast() : refreshed
+            if let selectedID,
+               let newIndex = self.windows.firstIndex(where: { $0.id == selectedID }) {
+                self.selectedIndex = newIndex
+            } else {
+                self.selectedIndex = min(self.selectedIndex, max(self.windows.count - 1, 0))
+            }
+            self.refreshOverlay()
+            self.requestSelectedThumbnail()
+        }
+    }
+
+    private func requestSelectedThumbnail() {
+        guard windows.indices.contains(selectedIndex) else { return }
+        let window = windows[selectedIndex]
+        guard thumbnails[window.id] == nil else { return }
+
+        thumbnailTask?.cancel()
+        thumbnailTask = Task { [weak self] in
+            let thumbnail = await WindowEnumerator.thumbnail(for: window)
+            guard !Task.isCancelled, let self, self.isActive else { return }
+            self.thumbnails[window.id] = thumbnail
+            self.refreshOverlay()
         }
     }
 
@@ -147,6 +194,7 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
     }
 
     private func dismissOverlay() {
+        thumbnailTask?.cancel()
         isActive = false
         lastModifierFlags = []
         services?.overlay.dismiss()

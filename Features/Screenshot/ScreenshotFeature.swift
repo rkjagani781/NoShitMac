@@ -92,18 +92,27 @@ final class ScreenshotFeature: FeatureModule, ObservableObject {
 
     private func presentEditor(with image: NSImage) {
         CaptureService.copyToClipboard(image)
-        services?.overlay.show(
+        services?.overlay.showEditor(
             content: ScreenshotEditorView(
                 sourceImage: image,
-                onDone: { final in
+                onCopy: { final in
                     CaptureService.copyToClipboard(final)
-                    self.services?.overlay.dismiss()
                 },
-                onCancel: { [weak self] in
+                onSave: { final in
+                    CaptureService.save(final)
+                },
+                onDelete: { [weak self] in
+                    CaptureService.clearClipboard()
+                    self?.services?.overlay.dismiss()
+                },
+                onClose: { [weak self] in
                     self?.services?.overlay.dismiss()
                 }
             ),
-            size: NSSize(width: 860, height: 620)
+            size: NSSize(width: 980, height: 720),
+            onClose: { [weak self] in
+                self?.services?.overlay.dismiss()
+            }
         )
     }
 }

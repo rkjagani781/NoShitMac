@@ -2,10 +2,15 @@ import AppKit
 import ApplicationServices
 
 enum WindowActivator {
+    static func close(_ window: WindowInfo) -> Bool {
+        guard let axWindow = findAXWindow(for: window) else { return false }
+        return AXUIElementPerformAction(axWindow, "AXClose" as CFString) == .success
+    }
+
     static func activate(_ window: WindowInfo) {
         guard let app = NSRunningApplication(processIdentifier: window.ownerPID) else { return }
 
-        app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+        app.activate(options: [.activateAllWindows])
 
         guard let axWindow = findAXWindow(for: window) else {
             // Fallback: activating the app may switch Spaces to its key window.

@@ -5,6 +5,7 @@ import SwiftUI
 public final class OverlayWindowManager {
     private var panel: NSPanel?
     private var hostingView: NSHostingView<AnyView>?
+    private var closeDelegate: PanelCloseDelegate?
 
     public init() {}
 
@@ -74,17 +75,71 @@ public final class OverlayWindowManager {
         self.hostingView = hosting
     }
 
+    public func showEditor<Content: View>(
+        content: Content,
+        size: NSSize = NSSize(width: 980, height: 720),
+        onClose: @escaping () -> Void
+    ) {
+        dismiss()
+
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = "Screenshot"
+        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .visible
+        panel.minSize = NSSize(width: 720, height: 520)
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+        panel.isFloatingPanel = false
+        panel.level = .normal
+        panel.backgroundColor = .windowBackgroundColor
+        panel.hasShadow = true
+        panel.isReleasedWhenClosed = false
+
+        let delegate = PanelCloseDelegate(onClose: onClose)
+        panel.delegate = delegate
+
+        let hosting = NSHostingView(rootView: AnyView(content))
+        hosting.frame = NSRect(origin: .zero, size: size)
+        panel.contentView = hosting
+        panel.center()
+
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+
+        self.panel = panel
+        self.hostingView = hosting
+        self.closeDelegate = delegate
+    }
+
     public func update<Content: View>(content: Content) {
         hostingView?.rootView = AnyView(content)
     }
 
     public func dismiss() {
         panel?.orderOut(nil)
+        panel?.delegate = nil
         panel = nil
         hostingView = nil
+        closeDelegate = nil
     }
 
     public var isVisible: Bool {
         panel?.isVisible ?? false
+    }
+}
+
+private final class PanelCloseDelegate: NSObject, NSWindowDelegate {
+    let onClose: () -> Void
+
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onClose()
     }
 }

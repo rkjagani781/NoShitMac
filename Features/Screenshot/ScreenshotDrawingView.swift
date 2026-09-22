@@ -42,6 +42,16 @@ final class ScreenshotDrawingView: NSView {
         needsDisplay = true
     }
 
+    func undo() {
+        guard !strokes.isEmpty else { return }
+        strokes.removeLast()
+        needsDisplay = true
+    }
+
+    var canUndo: Bool {
+        !strokes.isEmpty
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         for stroke in strokes {

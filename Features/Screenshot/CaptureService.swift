@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import ScreenCaptureKit
+import UniformTypeIdentifiers
 
 @available(macOS 14.0, *)
 enum CaptureService {
@@ -67,6 +68,41 @@ enum CaptureService {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.writeObjects([image])
+    }
+
+    static func clearClipboard() {
+        NSPasteboard.general.clearContents()
+    }
+
+    @MainActor
+    static func save(_ image: NSImage) {
+        let panel = NSSavePanel()
+        panel.title = "Save Screenshot"
+        panel.nameFieldStringValue = "Screenshot \(formattedTimestamp()).png"
+        panel.allowedContentTypes = [.png]
+        panel.canCreateDirectories = true
+
+        panel.begin { response in
+            guard response == .OK,
+                  let url = panel.url,
+                  let tiff = image.tiffRepresentation,
+                  let representation = NSBitmapImageRep(data: tiff),
+                  let png = representation.representation(using: .png, properties: [:]) else {
+                return
+            }
+
+            do {
+                try png.write(to: url, options: .atomic)
+            } catch {
+                NSAlert(error: error).runModal()
+            }
+        }
+    }
+
+    private static func formattedTimestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        return formatter.string(from: Date())
     }
 
     private static func displayScale(for displayID: CGDirectDisplayID) -> CGFloat {

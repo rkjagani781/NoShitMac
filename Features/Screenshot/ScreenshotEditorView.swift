@@ -27,6 +27,10 @@ final class EditorCanvasController: ObservableObject {
         drawingView.clear()
     }
 
+    func undo() {
+        drawingView.undo()
+    }
+
     func render(on base: NSImage, viewSize: NSSize) -> NSImage {
         drawingView.render(on: base, viewSize: viewSize)
     }
@@ -34,80 +38,189 @@ final class EditorCanvasController: ObservableObject {
 
 struct ScreenshotEditorView: View {
     let sourceImage: NSImage
-    let onDone: (NSImage) -> Void
-    let onCancel: () -> Void
+    let onCopy: (NSImage) -> Void
+    let onSave: (NSImage) -> Void
+    let onDelete: () -> Void
+    let onClose: () -> Void
 
     @StateObject private var canvasController = EditorCanvasController()
     @State private var selectedTool: EditorTool = .pencil
     @State private var cropRect: CGRect?
     @State private var displayImage: NSImage
     @State private var canvasSize: CGSize = .zero
+    @State private var copied = false
 
-    init(sourceImage: NSImage, onDone: @escaping (NSImage) -> Void, onCancel: @escaping () -> Void) {
+    init(
+        sourceImage: NSImage,
+        onCopy: @escaping (NSImage) -> Void,
+        onSave: @escaping (NSImage) -> Void,
+        onDelete: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
         self.sourceImage = sourceImage
-        self.onDone = onDone
-        self.onCancel = onCancel
+        self.onCopy = onCopy
+        self.onSave = onSave
+        self.onDelete = onDelete
+        self.onClose = onClose
         _displayImage = State(initialValue: sourceImage)
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text("Screenshot Editor")
-                    .font(.headline)
-                Spacer()
+        VStack(spacing: 0) {
+            editorToolbar
+            Divider()
+            canvas
+            Divider()
+            actionBar
+        }
+        .frame(minWidth: 720, minHeight: 520)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            canvasController.applyTool(selectedTool)
+        }
+    }
+
+    private var editorToolbar: some View {
+        HStack(spacing: 12) {
+            Text("Edit Screenshot")
+                .font(.headline)
+
+            Divider()
+                .frame(height: 20)
+
+            HStack(spacing: 4) {
                 ForEach(EditorTool.allCases, id: \.self) { tool in
                     Button {
-                        selectedTool = tool
-                        canvasController.applyTool(tool)
+                        select(tool)
                     } label: {
-                        Label(tool.rawValue, systemImage: tool.icon)
+                        Image(systemName: tool.icon)
+                            .frame(width: 22, height: 22)
                     }
                     .buttonStyle(.bordered)
-                    .tint(selectedTool == tool ? .accentColor : .secondary)
+                    .tint(selectedTool == tool ? .accentColor : nil)
+                    .help(tool.rawValue)
                 }
             }
 
-            GeometryReader { geo in
-                ZStack {
-                    Image(nsImage: displayImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    if selectedTool != .crop {
-                        DrawingCanvasRepresentable(drawingView: canvasController.drawingView)
-                    } else {
-                        CropOverlayView(cropRect: $cropRect, imageSize: displayImage.size)
-                    }
-                }
-                .onAppear { canvasSize = geo.size }
-                .onChange(of: geo.size) { canvasSize = $0 }
-            }
-            .frame(minHeight: 360)
-            .background(Color.black.opacity(0.85))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            HStack {
-                Button("Cancel", action: onCancel)
-                Spacer()
+            if selectedTool == .crop {
                 Button("Apply Crop") {
                     applyCropAction()
                 }
                 .disabled(selectedTool != .crop || cropRect == nil)
-                Button("Copy & Done") {
-                    let final = canvasController.render(on: displayImage, viewSize: NSSize(width: canvasSize.width, height: canvasSize.height))
-                    onDone(final)
-                }
-                .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
             }
+
+            Spacer()
+
+            Button {
+                canvasController.undo()
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+            }
+            .buttonStyle(.borderless)
+            .help("Undo last annotation")
+            .keyboardShortcut("z", modifiers: .command)
+
+            Button {
+                canvasController.clearDrawing()
+            } label: {
+                Image(systemName: "eraser")
+            }
+            .buttonStyle(.borderless)
+            .help("Clear annotations")
         }
-        .padding(16)
-        .frame(width: 860, height: 620)
-        .onAppear {
-            canvasController.applyTool(selectedTool)
+        .padding(.horizontal, 18)
+        .padding(.top, 30)
+        .padding(.bottom, 10)
+        .background(.bar)
+    }
+
+    private var canvas: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(nsColor: .underPageBackgroundColor)
+
+                Image(nsImage: displayImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
+
+                if selectedTool != .crop {
+                    DrawingCanvasRepresentable(drawingView: canvasController.drawingView)
+                } else {
+                    CropOverlayView(cropRect: $cropRect, imageSize: displayImage.size)
+                }
+            }
+            .onAppear { canvasSize = geo.size }
+            .onChange(of: geo.size) { _, newSize in canvasSize = newSize }
         }
+        .frame(minHeight: 360)
+        .padding(20)
+        .background(Color(nsColor: .underPageBackgroundColor))
+    }
+
+    private var actionBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "photo")
+                .foregroundStyle(.secondary)
+            Text("\(Int(displayImage.size.width)) × \(Int(displayImage.size.height))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            if copied {
+                Label("Copied", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .transition(.opacity)
+            }
+
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            .help("Discard this screenshot")
+
+            Button {
+                onSave(finalImage)
+            } label: {
+                Label("Save…", systemImage: "square.and.arrow.down")
+            }
+            .keyboardShortcut("s", modifiers: .command)
+
+            Button {
+                onCopy(finalImage)
+                withAnimation { copied = true }
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+
+            Button("Done") {
+                onClose()
+            }
+            .keyboardShortcut(.defaultAction)
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(.bar)
+    }
+
+    private var finalImage: NSImage {
+        canvasController.render(
+            on: displayImage,
+            viewSize: NSSize(width: canvasSize.width, height: canvasSize.height)
+        )
+    }
+
+    private func select(_ tool: EditorTool) {
+        selectedTool = tool
+        cropRect = nil
+        canvasController.applyTool(tool)
     }
 
     private func applyCropAction() {

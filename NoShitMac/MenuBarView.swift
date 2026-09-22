@@ -2,6 +2,7 @@ import NoShitMacCore
 import SwiftUI
 
 struct MenuBarView: View {
+    @Environment(\.openSettings) private var openSettings
     @EnvironmentObject private var coordinator: AppCoordinator
     @EnvironmentObject private var permissions: PermissionService
     @EnvironmentObject private var config: ConfigStore
@@ -17,9 +18,17 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button("Settings…") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            Button {
+                coordinator.cleanupInactiveWindows()
+            } label: {
+                Label("Clean Up Windows", systemImage: "xmark.bin")
             }
+            .help("Close minimized and hidden windows from background apps")
+
+            Button("Settings…") {
+                coordinator.openSettings(using: openSettings)
+            }
+            .keyboardShortcut(",", modifiers: .command)
 
             Toggle("Launch at Login", isOn: Binding(
                 get: { config.config.launchAtLogin },

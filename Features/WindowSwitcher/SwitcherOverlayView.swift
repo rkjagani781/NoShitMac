@@ -18,17 +18,26 @@ struct SwitcherOverlayView: View {
                     .foregroundStyle(.secondary)
                     .padding()
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHGrid(rows: [GridItem(.fixed(140))], spacing: 16) {
-                        ForEach(Array(windows.enumerated()), id: \.element.id) { index, window in
-                            WindowTile(
-                                window: window,
-                                thumbnail: thumbnails[window.id],
-                                isSelected: index == selectedIndex
-                            )
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHGrid(rows: [GridItem(.fixed(140))], spacing: 16) {
+                            ForEach(Array(windows.enumerated()), id: \.element.id) { index, window in
+                                WindowTile(
+                                    window: window,
+                                    thumbnail: thumbnails[window.id],
+                                    isSelected: index == selectedIndex
+                                )
+                                .id(window.id)
+                            }
                         }
+                        .padding(.horizontal, 20)
                     }
-                    .padding(.horizontal, 20)
+                    .onAppear {
+                        scrollToSelection(using: proxy, animated: false)
+                    }
+                    .onChange(of: selectedIndex) {
+                        scrollToSelection(using: proxy, animated: true)
+                    }
                 }
             }
 
@@ -45,6 +54,18 @@ struct SwitcherOverlayView: View {
                 .strokeBorder(.white.opacity(0.15), lineWidth: 1)
         )
         .padding(40)
+    }
+
+    private func scrollToSelection(using proxy: ScrollViewProxy, animated: Bool) {
+        guard windows.indices.contains(selectedIndex) else { return }
+        let action = {
+            proxy.scrollTo(windows[selectedIndex].id, anchor: .center)
+        }
+        if animated {
+            withAnimation(.easeOut(duration: 0.12), action)
+        } else {
+            action()
+        }
     }
 }
 
