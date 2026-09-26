@@ -2,33 +2,48 @@ import AppKit
 import ApplicationServices
 
 enum WindowActivator {
+    private static let focusQueue = DispatchQueue(label: "com.rkjagani781.NoShitMac.windowFocus", qos: .userInitiated)
+
     static func close(_ window: WindowInfo) -> Bool {
         guard let axWindow = findAXWindow(for: window) else { return false }
         AXUIElementSetMessagingTimeout(axWindow, 0.25)
 
         if performClose(axWindow) { return true }
 
-        // Some minimized or off-space windows only expose a working close button after unminimizing.
         unminimize(axWindow)
         if performClose(axWindow) { return true }
         raiseAndFocus(axWindow)
         return performClose(axWindow)
     }
 
+    /// Activate like AltTab: target a specific CGWindowID across Spaces / displays,
+    /// then raise via Accessibility. Serialized so rapid switches don't race.
     static func activate(_ window: WindowInfo) {
-        guard let app = NSRunningApplication(processIdentifier: window.ownerPID) else { return }
+        focusQueue.async {
+            _ = PrivateFocusAPIs.focusWindow(pid: window.ownerPID, windowID: window.id)
 
-        app.activate(options: [.activateAllWindows])
+            // Small settle so WindowServer commits the Space/display change.
+            usleep(30_000)
 
-        guard let axWindow = findAXWindow(for: window) else {
-            return
-        }
+            DispatchQueue.main.sync {
+                if let axWindow = findAXWindow(for: window) {
+                    AXUIElementSetMessagingTimeout(axWindow, 0.35)
+                    unminimize(axWindow)
+                    raiseAndFocus(axWindow)
+                } else if let app = NSRunningApplication(processIdentifier: window.ownerPID) {
+                    // Last resort — may raise the wrong window of a multi-window app.
+                    app.activate(options: [.activateAllWindows])
+                    _ = PrivateFocusAPIs.focusWindow(pid: window.ownerPID, windowID: window.id)
+                }
+            }
 
-        unminimize(axWindow)
-        raiseAndFocus(axWindow)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            raiseAndFocus(axWindow)
+            // Second AX pass after the Space animation begins.
+            usleep(50_000)
+            DispatchQueue.main.sync {
+                if let axWindow = findAXWindow(for: window) {
+                    raiseAndFocus(axWindow)
+                }
+            }
         }
     }
 
@@ -48,14 +63,13 @@ enum WindowActivator {
             return true
         }
 
-        // Last resort: mark the window main/focused so the close button becomes actionable.
         AXUIElementSetAttributeValue(axWindow, kAXMainAttribute as CFString, kCFBooleanTrue)
         return AXUIElementPerformAction(closeButton, kAXPressAction as CFString) == .success
     }
 
     private static func findAXWindow(for window: WindowInfo) -> AXUIElement? {
         let appElement = AXUIElementCreateApplication(window.ownerPID)
-        AXUIElementSetMessagingTimeout(appElement, 0.25)
+        AXUIElementSetMessagingTimeout(appElement, 0.35)
 
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value) == .success,

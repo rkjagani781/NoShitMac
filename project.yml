@@ -38,6 +38,8 @@ targets:
       INFOPLIST_FILE: NoShitMac/Info.plist
       CODE_SIGN_ENTITLEMENTS: NoShitMac/NoShitMac.entitlements
       LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+      FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks"
+      OTHER_LDFLAGS: "$(inherited) -framework SkyLight"
       CURRENT_PROJECT_VERSION: 1
       MARKETING_VERSION: 0.1.0
     preBuildScripts: []

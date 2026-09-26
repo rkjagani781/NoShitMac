@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 import NoShitMacCore
 import SwiftUI
 
@@ -14,11 +13,16 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
     private var selectedIndex = 0
     private var thumbnails: [CGWindowID: NSImage] = [:]
     private var isActive = false
-    private var lastModifierFlags: NSEvent.ModifierFlags = []
     private var binding = HotkeyBinding.windowSwitcherDefault
     private var cachedWindows: [WindowInfo] = []
     private var catalogTask: Task<Void, Never>?
-    private var thumbnailTask: Task<Void, Never>?
+    private var thumbnailTasks: [CGWindowID: Task<Void, Never>] = [:]
+
+    private let escapeKeyCode: UInt16 = 53
+    private let leftArrow: UInt16 = 123
+    private let rightArrow: UInt16 = 124
+    private let upArrow: UInt16 = 126
+    private let downArrow: UInt16 = 125
 
     func requiredPermissions() -> [PermissionType] {
         [.accessibility, .screenRecording, .inputMonitoring]
@@ -29,17 +33,15 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
         binding = services.config.config.windowSwitcher
         isEnabled = services.config.config.windowSwitcherEnabled
         services.hotkeys.register(id: id) { [weak self] event in
-            Task { @MainActor in
-                self?.handleHotkey(event)
-            }
+            self?.handleHotkey(event) ?? false
         }
         refreshWindowCatalog(updateActiveSession: false)
     }
 
     func stop() {
         catalogTask?.cancel()
-        thumbnailTask?.cancel()
-        dismissOverlay()
+        cancelThumbnailTasks()
+        dismissOverlay(activate: false)
         services?.hotkeys.unregister(id: id)
     }
 
@@ -54,57 +56,81 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
                         NotificationCenter.default.post(name: .featureConfigChanged, object: nil)
                     }
                 ))
-                Text("Default: ⌥ Tab — Windows-style window switching")
+                Text("Default: ⌥ Tab — hold to browse, release to switch, Esc to cancel")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         )
     }
 
-    private func handleHotkey(_ event: HotkeyEvent) {
-        guard isEnabled, let services else { return }
+    /// Returns true when the event should be swallowed (not delivered to the focused app).
+    @discardableResult
+    private func handleHotkey(_ event: HotkeyEvent) -> Bool {
+        guard isEnabled else { return false }
+        guard let services else { return false }
         binding = services.config.config.windowSwitcher
 
         switch event {
-        case .keyDown(let keyCode, let modifiers):
-            if HotkeyMatcher.matches(binding: binding, keyCode: keyCode, modifiers: modifiers) {
-                if !isActive {
-                    beginSwitching(modifiers: modifiers)
-                } else {
-                    cycleForward()
+        case .keyDown(let keyCode, let modifiers, let isRepeat):
+            if isActive {
+                if keyCode == escapeKeyCode {
+                    dismissOverlay(activate: false)
+                    return true
                 }
-            } else if isActive && keyCode == UInt16(kVK_Tab) && binding.allModifiersHeld(modifiers) {
-                if modifiers.contains(.shift) {
-                    cycleBackward()
-                } else {
-                    cycleForward()
+                if keyCode == leftArrow || keyCode == upArrow {
+                    if !isRepeat { cycleBackward() }
+                    return true
+                }
+                if keyCode == rightArrow || keyCode == downArrow {
+                    if !isRepeat { cycleForward() }
+                    return true
                 }
             }
-            lastModifierFlags = modifiers
+
+            if HotkeyMatcher.matchesAllowingShift(binding: binding, keyCode: keyCode, modifiers: modifiers) {
+                let reverse = modifiers.contains(.shift)
+                if !isActive {
+                    beginSwitching(reverse: reverse)
+                } else if !isRepeat {
+                    if reverse { cycleBackward() } else { cycleForward() }
+                }
+                return true
+            }
+
+            return false
 
         case .flagsChanged(let modifiers):
             if isActive, !binding.allModifiersHeld(modifiers) {
                 confirmSelection()
+                return true
             }
-            lastModifierFlags = modifiers
+            return false
 
         case .keyUp(let keyCode, _):
             if isActive, binding.modifiers.isEmpty, keyCode == binding.keyCode {
                 confirmSelection()
+                return true
             }
+            return false
         }
     }
 
-    private func beginSwitching(modifiers: NSEvent.ModifierFlags) {
+    private func beginSwitching(reverse: Bool) {
         isActive = true
-        lastModifierFlags = modifiers
-        // AX catalog contains logical application windows. The CG snapshot is only a
-        // first-launch fallback because it also exposes browser compositor surfaces.
-        windows = cachedWindows.isEmpty ? WindowEnumerator.enumerateFast() : cachedWindows
-        selectedIndex = 0
+        let snapshot = WindowEnumerator.enumerateFast()
+        windows = cachedWindows.isEmpty
+            ? snapshot
+            : WindowEnumerator.merged(snapshot, with: cachedWindows)
+
+        if windows.count > 1 {
+            selectedIndex = reverse ? windows.count - 1 : 1
+        } else {
+            selectedIndex = 0
+        }
+
         thumbnails.removeAll(keepingCapacity: true)
         showOverlay()
-        requestSelectedThumbnail()
+        prefetchThumbnails()
         refreshWindowCatalog(updateActiveSession: true)
     }
 
@@ -112,23 +138,33 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
         guard !windows.isEmpty else { return }
         selectedIndex = (selectedIndex + 1) % windows.count
         refreshOverlay()
-        requestSelectedThumbnail()
+        prefetchThumbnails()
     }
 
     private func cycleBackward() {
         guard !windows.isEmpty else { return }
         selectedIndex = (selectedIndex - 1 + windows.count) % windows.count
         refreshOverlay()
-        requestSelectedThumbnail()
+        prefetchThumbnails()
+    }
+
+    private func selectIndex(_ index: Int, activateImmediately: Bool) {
+        guard windows.indices.contains(index) else { return }
+        selectedIndex = index
+        refreshOverlay()
+        prefetchThumbnails()
+        if activateImmediately {
+            confirmSelection()
+        }
     }
 
     private func confirmSelection() {
         guard isActive, windows.indices.contains(selectedIndex) else {
-            dismissOverlay()
+            dismissOverlay(activate: false)
             return
         }
         let window = windows[selectedIndex]
-        dismissOverlay()
+        dismissOverlay(activate: false)
         WindowActivator.activate(window)
     }
 
@@ -143,60 +179,86 @@ final class WindowSwitcherFeature: FeatureModule, ObservableObject {
             self.cachedWindows = refreshed
             guard updateActiveSession, self.isActive else { return }
 
-            let selectedID = self.windows.indices.contains(self.selectedIndex)
-                ? self.windows[self.selectedIndex].id
-                : nil
-            self.windows = refreshed.isEmpty ? WindowEnumerator.enumerateFast() : refreshed
-            if let selectedID,
-               let newIndex = self.windows.firstIndex(where: { $0.id == selectedID }) {
-                self.selectedIndex = newIndex
-            } else {
-                self.selectedIndex = min(self.selectedIndex, max(self.windows.count - 1, 0))
-            }
+            // Enrich titles/flags only — never reshuffle the live session order.
+            self.windows = WindowEnumerator.enrich(self.windows, with: refreshed)
             self.refreshOverlay()
-            self.requestSelectedThumbnail()
+            self.prefetchThumbnails()
         }
     }
 
-    private func requestSelectedThumbnail() {
-        guard windows.indices.contains(selectedIndex) else { return }
-        let window = windows[selectedIndex]
-        guard thumbnails[window.id] == nil else { return }
+    private func prefetchThumbnails() {
+        guard !windows.isEmpty else { return }
+        let radius = 4
+        let indices = ((selectedIndex - radius)...(selectedIndex + radius))
+            .map { ($0 + windows.count * 4) % windows.count }
 
-        thumbnailTask?.cancel()
-        thumbnailTask = Task { [weak self] in
-            let thumbnail = await WindowEnumerator.thumbnail(for: window)
-            guard !Task.isCancelled, let self, self.isActive else { return }
-            self.thumbnails[window.id] = thumbnail
-            self.refreshOverlay()
+        var needed = Set<CGWindowID>()
+        for index in indices {
+            let id = windows[index].id
+            needed.insert(id)
+            guard thumbnails[id] == nil, thumbnailTasks[id] == nil else { continue }
+            let window = windows[index]
+            thumbnailTasks[id] = Task { [weak self] in
+                let thumbnail = await WindowEnumerator.thumbnail(for: window)
+                guard !Task.isCancelled, let self, self.isActive else { return }
+                self.thumbnails[window.id] = thumbnail
+                self.thumbnailTasks[window.id] = nil
+                self.refreshOverlay()
+            }
         }
+
+        // Cancel work for tiles that scrolled far away.
+        for (id, task) in thumbnailTasks where !needed.contains(id) {
+            task.cancel()
+            thumbnailTasks[id] = nil
+        }
+    }
+
+    private func cancelThumbnailTasks() {
+        for task in thumbnailTasks.values { task.cancel() }
+        thumbnailTasks.removeAll()
+    }
+
+    private func overlaySize(for count: Int) -> NSSize {
+        let tiles = max(count, 1)
+        let tileWidth: CGFloat = 176
+        let visible = min(CGFloat(tiles), 6)
+        let width = min(max(320, visible * tileWidth + 80), 1100)
+        let rows = tiles > 6 ? 2 : 1
+        let height: CGFloat = rows == 2 ? 420 : 260
+        return NSSize(width: width, height: height)
     }
 
     private func showOverlay() {
         services?.overlay.show(
-            content: SwitcherOverlayView(
-                windows: windows,
-                selectedIndex: selectedIndex,
-                thumbnails: thumbnails
-            ),
-            size: NSSize(width: 800, height: 260)
+            content: makeOverlayView(),
+            size: overlaySize(for: windows.count),
+            on: ScreenGeometry.screenUnderMouse()
         )
     }
 
     private func refreshOverlay() {
-        services?.overlay.update(
-            content: SwitcherOverlayView(
-                windows: windows,
-                selectedIndex: selectedIndex,
-                thumbnails: thumbnails
-            )
+        services?.overlay.update(content: makeOverlayView())
+    }
+
+    private func makeOverlayView() -> SwitcherOverlayView {
+        SwitcherOverlayView(
+            windows: windows,
+            selectedIndex: selectedIndex,
+            thumbnails: thumbnails,
+            onHover: { [weak self] index in
+                self?.selectIndex(index, activateImmediately: false)
+            },
+            onSelect: { [weak self] index in
+                self?.selectIndex(index, activateImmediately: true)
+            }
         )
     }
 
-    private func dismissOverlay() {
-        thumbnailTask?.cancel()
+    private func dismissOverlay(activate: Bool) {
+        _ = activate
+        cancelThumbnailTasks()
         isActive = false
-        lastModifierFlags = []
         services?.overlay.dismiss()
     }
 }

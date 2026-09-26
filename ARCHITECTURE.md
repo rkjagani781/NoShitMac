@@ -17,8 +17,9 @@ NoShitMacApp (menu bar)
             ├── PermissionService
             └── OverlayWindowManager
     └── Features/
-            ├── WindowSwitcher/
-            └── Screenshot/
+            ├── WindowSwitcher/   ← AltTab-style focus via SkyLight + MRU z-order
+            ├── Screenshot/
+            └── WindowCleanup/
 ```
 
 ## FeatureModule Contract

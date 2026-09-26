@@ -6,19 +6,19 @@ import ScreenCaptureKit
 enum WindowEnumerator {
     /// Fast path used when the hotkey is pressed. This does not contact apps.
     static func enumerateFast() -> [WindowInfo] {
-        sortWindows(deduplicated(enumerateFromCG()))
+        sortByZOrder(deduplicated(mergeOnScreenMRUWithAllSpaces()))
     }
 
     /// Comprehensive path intended for a background task.
     static func enumerate() -> [WindowInfo] {
         var byID: [CGWindowID: WindowInfo] = [:]
 
-        for window in enumerateFromCG() {
+        for window in mergeOnScreenMRUWithAllSpaces() {
             byID[window.id] = window
         }
 
         if AXIsProcessTrusted() {
-            for window in enumerateFromAX() {
+            for window in enumerateFromAX(startingZOrder: byID.count) {
                 if let existing = byID[window.id] {
                     byID[window.id] = prefer(existing, window)
                 } else {
@@ -27,15 +27,39 @@ enum WindowEnumerator {
             }
         }
 
-        return sortWindows(deduplicated(Array(byID.values)))
+        return sortByZOrder(deduplicated(Array(byID.values)))
     }
 
     static func merged(_ primary: [WindowInfo], with secondary: [WindowInfo]) -> [WindowInfo] {
-        var byID = Dictionary(uniqueKeysWithValues: secondary.map { ($0.id, $0) })
+        // Preserve primary (fast MRU) order and identity; enrich titles/flags from secondary.
+        let secondaryByID = Dictionary(uniqueKeysWithValues: secondary.map { ($0.id, $0) })
+        var result: [WindowInfo] = []
+        var seen = Set<CGWindowID>()
+
         for window in primary {
-            byID[window.id] = window
+            seen.insert(window.id)
+            if let other = secondaryByID[window.id] {
+                result.append(prefer(window, other))
+            } else {
+                result.append(window)
+            }
         }
-        return sortWindows(deduplicated(Array(byID.values)))
+
+        // Append secondary-only windows (e.g. AX-discovered) after the MRU strip.
+        for window in secondary where seen.insert(window.id).inserted {
+            result.append(window)
+        }
+
+        return result
+    }
+
+    /// Enrich existing session windows in-place without reshuffling order.
+    static func enrich(_ session: [WindowInfo], with catalog: [WindowInfo]) -> [WindowInfo] {
+        let byID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+        return session.map { window in
+            guard let other = byID[window.id] else { return window }
+            return prefer(window, other)
+        }
     }
 
     static func thumbnail(
@@ -76,16 +100,30 @@ enum WindowEnumerator {
 
     // MARK: - CGWindowList
 
-    private static func enumerateFromCG() -> [WindowInfo] {
-        guard let rawList = CGWindowListCopyWindowInfo(
-            [.optionAll, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else {
+    /// On-screen list is front-to-back (MRU). optionAll includes other Spaces but loses MRU order.
+    private static func mergeOnScreenMRUWithAllSpaces() -> [WindowInfo] {
+        let onScreen = enumerateFromCG(options: [.optionOnScreenOnly, .excludeDesktopElements])
+        let all = enumerateFromCG(options: [.optionAll, .excludeDesktopElements], startingZOrder: onScreen.count)
+
+        var seen = Set(onScreen.map(\.id))
+        var merged = onScreen
+        for window in all where seen.insert(window.id).inserted {
+            merged.append(window)
+        }
+        return merged
+    }
+
+    private static func enumerateFromCG(
+        options: CGWindowListOption,
+        startingZOrder: Int = 0
+    ) -> [WindowInfo] {
+        guard let rawList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
 
         var windows: [WindowInfo] = []
         var activationPolicies: [pid_t: NSApplication.ActivationPolicy] = [:]
+        var zOrder = startingZOrder
 
         for entry in rawList {
             guard
@@ -116,13 +154,12 @@ enum WindowEnumerator {
 
             let isOnScreen = entry[kCGWindowIsOnscreen as String] as? Bool ?? false
             let isMinimized = !isOnScreen && bounds.width <= 1 && bounds.height <= 1
-            // optionAll contains menu bars, stale compositor surfaces, and helper panels.
-            // Real application windows are supplied by AX below; keep only plausible
-            // fast-path windows here.
             if !isMinimized && (bounds.width < 120 || bounds.height < 80) { continue }
 
             let alpha = entry[kCGWindowAlpha as String] as? Double ?? 1
             if alpha <= 0 { continue }
+
+            let screen = ScreenGeometry.screen(containingQuartzBounds: bounds)
 
             windows.append(WindowInfo(
                 id: windowID,
@@ -132,8 +169,11 @@ enum WindowEnumerator {
                 bounds: bounds,
                 layer: layer,
                 isOnScreen: isOnScreen,
-                isMinimized: isMinimized
+                isMinimized: isMinimized,
+                zOrder: zOrder,
+                screenName: ScreenGeometry.shortDisplayName(for: screen)
             ))
+            zOrder += 1
         }
 
         return windows
@@ -141,12 +181,12 @@ enum WindowEnumerator {
 
     // MARK: - Accessibility
 
-    private static func enumerateFromAX() -> [WindowInfo] {
+    private static func enumerateFromAX(startingZOrder: Int) -> [WindowInfo] {
         var windows: [WindowInfo] = []
+        var zOrder = startingZOrder
 
         let apps = NSWorkspace.shared.runningApplications.filter { app in
             guard app.activationPolicy == .regular else { return false }
-
             let name = app.localizedName ?? app.bundleIdentifier ?? ""
             return !shouldSkipOwner(name)
         }
@@ -171,6 +211,7 @@ enum WindowEnumerator {
                 let minimized = (copyAttribute(axWindow, kAXMinimizedAttribute as CFString) as? Bool) ?? false
                 let bounds = axWindowBounds(axWindow) ?? .zero
                 let isMinimized = minimized || (!bounds.isEmpty && bounds.width <= 1 && bounds.height <= 1)
+                let screen = ScreenGeometry.screen(containingQuartzBounds: bounds)
 
                 windows.append(WindowInfo(
                     id: windowID,
@@ -180,8 +221,11 @@ enum WindowEnumerator {
                     bounds: bounds,
                     layer: 0,
                     isOnScreen: !minimized && bounds.width > 0 && bounds.height > 0,
-                    isMinimized: isMinimized
+                    isMinimized: isMinimized,
+                    zOrder: zOrder,
+                    screenName: ScreenGeometry.shortDisplayName(for: screen)
                 ))
+                zOrder += 1
             }
         }
 
@@ -220,12 +264,10 @@ enum WindowEnumerator {
 
     private static func deduplicated(_ windows: [WindowInfo]) -> [WindowInfo] {
         var seenIDs = Set<CGWindowID>()
-        // Window IDs, not titles or bounds, define identity. Multiple Chrome windows
-        // can legitimately have the same title and occupy the exact same frame.
         return windows.filter { seenIDs.insert($0.id).inserted }
     }
 
-    /// Prefer CG on-screen/minimized flags; keep AX title when CG title is generic.
+    /// Prefer CG on-screen/minimized flags and z-order; keep AX title when CG title is generic.
     private static func prefer(_ cg: WindowInfo, _ ax: WindowInfo) -> WindowInfo {
         let title: String
         if cg.title == cg.ownerName, ax.title != ax.ownerName {
@@ -236,25 +278,30 @@ enum WindowEnumerator {
             title = cg.title
         }
 
+        let bounds = cg.bounds.width > 0 ? cg.bounds : ax.bounds
+        let screen = ScreenGeometry.screen(containingQuartzBounds: bounds)
+
         return WindowInfo(
             id: cg.id,
             ownerPID: cg.ownerPID,
             ownerName: cg.ownerName,
             title: title,
-            bounds: cg.bounds.width > 0 ? cg.bounds : ax.bounds,
+            bounds: bounds,
             layer: cg.layer,
             isOnScreen: cg.isOnScreen,
-            isMinimized: cg.isMinimized || ax.isMinimized
+            isMinimized: cg.isMinimized || ax.isMinimized,
+            zOrder: cg.zOrder,
+            screenName: cg.screenName.isEmpty
+                ? ScreenGeometry.shortDisplayName(for: screen)
+                : cg.screenName
         )
     }
 
-    private static func sortWindows(_ windows: [WindowInfo]) -> [WindowInfo] {
+    private static func sortByZOrder(_ windows: [WindowInfo]) -> [WindowInfo] {
         windows.sorted { lhs, rhs in
+            if lhs.zOrder != rhs.zOrder { return lhs.zOrder < rhs.zOrder }
             if lhs.isOnScreen != rhs.isOnScreen { return lhs.isOnScreen && !rhs.isOnScreen }
             if lhs.isMinimized != rhs.isMinimized { return !lhs.isMinimized && rhs.isMinimized }
-            if lhs.ownerName != rhs.ownerName {
-                return lhs.ownerName.localizedCaseInsensitiveCompare(rhs.ownerName) == .orderedAscending
-            }
             return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
         }
     }
@@ -277,13 +324,17 @@ enum WindowEnumerator {
     }
 
     private static func axWindowBounds(_ window: AXUIElement) -> CGRect? {
+        // AX position is already in AppKit global coordinates (bottom-left origin).
+        // Convert to Quartz so screen mapping stays consistent with CGWindowList.
         guard
             let origin = point(from: window, attribute: kAXPositionAttribute as CFString),
-            let size = size(from: window, attribute: kAXSizeAttribute as CFString)
+            let size = size(from: window, attribute: kAXSizeAttribute as CFString),
+            let primary = NSScreen.screens.first
         else {
             return nil
         }
-        return CGRect(origin: origin, size: size)
+        let quartzY = NSMaxY(primary.frame) - origin.y - size.height
+        return CGRect(x: origin.x, y: quartzY, width: size.width, height: size.height)
     }
 
     private static func point(from element: AXUIElement, attribute: CFString) -> CGPoint? {

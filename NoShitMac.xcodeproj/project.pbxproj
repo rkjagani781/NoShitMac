@@ -18,6 +18,7 @@
 		2B9F9ED84F7A2D68AC195C60 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A581D048608447EA094F4F /* main.swift */; };
 		2FD5448B46D41D765C5DA492 /* WindowActivator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD84D3EC239C9261F1978139 /* WindowActivator.swift */; };
 		35DAFBC8ACD21D9854ED4768 /* AppConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AFA8365DCB26CCBBB73C98A /* AppConfigTests.swift */; };
+		43B1F92B8ADCF6FF9AE8B7F3 /* ScreenGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1ED91353BC4D1A517CB161 /* ScreenGeometry.swift */; };
 		4BED347212E115D948B8714D /* SwitcherOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E582400698A4075CD8DFE576 /* SwitcherOverlayView.swift */; };
 		6048E64E450CB64715BA334D /* NoShitMacCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = DE88F83AF56B613D323828DE /* NoShitMacCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		633BF8B98A51E69606480856 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19131B466290896FF77964B7 /* ConfigStore.swift */; };
@@ -29,6 +30,7 @@
 		8645CABEA8557959C98A07FE /* WindowEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 639B0A8771B6A85D1D058B92 /* WindowEnumerator.swift */; };
 		86D500186C1014C0A2878459 /* NoShitMacCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F970FD5659E366CDF97CC72 /* NoShitMacCore.swift */; };
 		8E97BC747F35EF9E234D6B71 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2B9287111A3866148E483E /* MenuBarView.swift */; };
+		92281DF6E6C78DA976140873 /* PrivateFocusAPIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A18C5EF35963F2EEB04C71E1 /* PrivateFocusAPIs.swift */; };
 		92A7309F9473648A7F580B15 /* OverlayWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C53A4661F4A89E50AACEC7B /* OverlayWindowManager.swift */; };
 		9AE3BDA2A29821F6F589F069 /* HotkeyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E6B4FBA4378AC95E70954B5 /* HotkeyService.swift */; };
 		B009C6167BB2FF71DB263DA9 /* CaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A26C37124DD4FDAE6DE45719 /* CaptureService.swift */; };
@@ -95,6 +97,7 @@
 
 /* Begin PBXFileReference section */
 		07D6EC9BCA848B34411B8A58 /* NoShitMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NoShitMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0A1ED91353BC4D1A517CB161 /* ScreenGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenGeometry.swift; sourceTree = "<group>"; };
 		0E6B4FBA4378AC95E70954B5 /* HotkeyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyService.swift; sourceTree = "<group>"; };
 		1119BE6990180280A1444CE2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		19131B466290896FF77964B7 /* ConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStore.swift; sourceTree = "<group>"; };
@@ -115,6 +118,7 @@
 		94A581D048608447EA094F4F /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		9BC08E26DD762163BEBC7C01 /* CropOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropOverlayView.swift; sourceTree = "<group>"; };
 		A002DE1C30C417CD0D599887 /* FeatureModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureModule.swift; sourceTree = "<group>"; };
+		A18C5EF35963F2EEB04C71E1 /* PrivateFocusAPIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateFocusAPIs.swift; sourceTree = "<group>"; };
 		A26C37124DD4FDAE6DE45719 /* CaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureService.swift; sourceTree = "<group>"; };
 		A2B6BCD4E3CC7D1F3380A6F8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		AA875B8580D78621EC5EA799 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
@@ -174,6 +178,8 @@
 		1FC2BF055956C5520526097F /* WindowSwitcher */ = {
 			isa = PBXGroup;
 			children = (
+				A18C5EF35963F2EEB04C71E1 /* PrivateFocusAPIs.swift */,
+				0A1ED91353BC4D1A517CB161 /* ScreenGeometry.swift */,
 				E582400698A4075CD8DFE576 /* SwitcherOverlayView.swift */,
 				CD84D3EC239C9261F1978139 /* WindowActivator.swift */,
 				639B0A8771B6A85D1D058B92 /* WindowEnumerator.swift */,
@@ -467,7 +473,9 @@
 				EEED5F08F56C834F7FDA60E6 /* HotkeyRecorderView.swift in Sources */,
 				8E97BC747F35EF9E234D6B71 /* MenuBarView.swift in Sources */,
 				D79430FCBCA2F0E77DB18E0A /* NoShitMacApp.swift in Sources */,
+				92281DF6E6C78DA976140873 /* PrivateFocusAPIs.swift in Sources */,
 				C79275419CA6DFBD4AD2E016 /* RegionSelectionView.swift in Sources */,
+				43B1F92B8ADCF6FF9AE8B7F3 /* ScreenGeometry.swift in Sources */,
 				20D9E6AF2FBB6656FA24BEC8 /* ScreenshotDrawingView.swift in Sources */,
 				7EA6B5C17A1701BB87911115 /* ScreenshotEditorView.swift in Sources */,
 				F514FA669663FB040E8B18DE /* ScreenshotFeature.swift in Sources */,
@@ -518,9 +526,11 @@
 				CODE_SIGN_ENTITLEMENTS = NoShitMac/NoShitMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INFOPLIST_FILE = NoShitMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = "$(inherited) -framework SkyLight";
 				PRODUCT_BUNDLE_IDENTIFIER = com.rkjagani781.NoShitMac;
 				SDKROOT = macosx;
 			};
@@ -627,9 +637,11 @@
 				CODE_SIGN_ENTITLEMENTS = NoShitMac/NoShitMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INFOPLIST_FILE = NoShitMac/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = "$(inherited) -framework SkyLight";
 				PRODUCT_BUNDLE_IDENTIFIER = com.rkjagani781.NoShitMac;
 				SDKROOT = macosx;
 			};

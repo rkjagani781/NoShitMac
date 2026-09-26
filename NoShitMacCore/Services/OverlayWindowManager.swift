@@ -12,7 +12,8 @@ public final class OverlayWindowManager {
     public func show<Content: View>(
         content: Content,
         size: NSSize = NSSize(width: 720, height: 480),
-        centered: Bool = true
+        centered: Bool = true,
+        on screen: NSScreen? = nil
     ) {
         dismiss()
 
@@ -34,13 +35,21 @@ public final class OverlayWindowManager {
         hosting.frame = NSRect(origin: .zero, size: size)
         panel.contentView = hosting
 
-        if centered, let screen = NSScreen.main {
-            let frame = screen.visibleFrame
-            let origin = NSPoint(
-                x: frame.midX - size.width / 2,
-                y: frame.midY - size.height / 2
-            )
-            panel.setFrameOrigin(origin)
+        if centered {
+            // Prefer the caller's screen (mouse / active display). NSScreen.main is often
+            // wrong on multi-monitor setups — AltTab uses the cursor's screen instead.
+            let target = screen
+                ?? NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+                ?? NSScreen.main
+                ?? NSScreen.screens.first
+            if let target {
+                let frame = target.visibleFrame
+                let origin = NSPoint(
+                    x: frame.midX - size.width / 2,
+                    y: frame.midY - size.height / 2
+                )
+                panel.setFrameOrigin(origin)
+            }
         }
 
         panel.orderFrontRegardless()

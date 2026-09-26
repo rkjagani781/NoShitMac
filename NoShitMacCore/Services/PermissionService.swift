@@ -58,7 +58,19 @@ public final class PermissionService: ObservableObject {
     }
 
     private func checkInputMonitoring() -> Bool {
-        // Input Monitoring has no public preflight API; assume granted if event tap can be created.
-        true
+        // Probe: a listen-only tap can be created when Input Monitoring is granted.
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: { _, _, event, _ in Unmanaged.passUnretained(event) },
+            userInfo: nil
+        ) else {
+            return false
+        }
+        CFMachPortInvalidate(tap)
+        return true
     }
 }

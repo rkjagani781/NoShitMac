@@ -20,9 +20,7 @@ final class ScreenshotFeature: FeatureModule, ObservableObject {
         binding = services.config.config.screenshot
         isEnabled = services.config.config.screenshotEnabled
         services.hotkeys.register(id: id) { [weak self] event in
-            Task { @MainActor in
-                self?.handleHotkey(event)
-            }
+            self?.handleHotkey(event) ?? false
         }
     }
 
@@ -42,18 +40,22 @@ final class ScreenshotFeature: FeatureModule, ObservableObject {
         services?.config.update { $0.screenshotCaptureMode = mode }
     }
 
-    private func handleHotkey(_ event: HotkeyEvent) {
-        guard isEnabled, let services else { return }
-        binding = services.config.config.screenshot
+    @discardableResult
+    private func handleHotkey(_ event: HotkeyEvent) -> Bool {
+        guard isEnabled else { return false }
+        binding = services?.config.config.screenshot ?? binding
 
-        if case .keyDown(let keyCode, let modifiers) = event,
+        if case .keyDown(let keyCode, let modifiers, let isRepeat) = event,
+           !isRepeat,
            HotkeyMatcher.matches(binding: binding, keyCode: keyCode, modifiers: modifiers) {
             if captureMode == .fullScreen {
                 Task { await captureFullScreen() }
             } else {
                 beginRegionSelection()
             }
+            return true
         }
+        return false
     }
 
     private func beginRegionSelection() {

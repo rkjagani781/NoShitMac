@@ -75,7 +75,7 @@ enum CaptureService {
     }
 
     @MainActor
-    static func save(_ image: NSImage) {
+  							  static func save(_ image: NSImage) {
         let panel = NSSavePanel()
         panel.title = "Save Screenshot"
         panel.nameFieldStringValue = "Screenshot \(formattedTimestamp()).png"

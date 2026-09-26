@@ -4,44 +4,27 @@ struct SwitcherOverlayView: View {
     let windows: [WindowInfo]
     let selectedIndex: Int
     let thumbnails: [CGWindowID: NSImage]
+    let onHover: (Int) -> Void
+    let onSelect: (Int) -> Void
 
-    private let columns = [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)]
+    private var usesTwoRows: Bool { windows.count > 6 }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Window Switcher")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
+        VStack(spacing: 12) {
             if windows.isEmpty {
                 Text("No windows found")
                     .foregroundStyle(.secondary)
                     .padding()
+            } else if usesTwoRows {
+                let items = Array(windows.enumerated())
+                let mid = (items.count + 1) / 2
+                windowRow(Array(items.prefix(mid)))
+                windowRow(Array(items.suffix(from: mid)))
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHGrid(rows: [GridItem(.fixed(140))], spacing: 16) {
-                            ForEach(Array(windows.enumerated()), id: \.element.id) { index, window in
-                                WindowTile(
-                                    window: window,
-                                    thumbnail: thumbnails[window.id],
-                                    isSelected: index == selectedIndex
-                                )
-                                .id(window.id)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                    .onAppear {
-                        scrollToSelection(using: proxy, animated: false)
-                    }
-                    .onChange(of: selectedIndex) {
-                        scrollToSelection(using: proxy, animated: true)
-                    }
-                }
+                windowRow(Array(windows.enumerated()))
             }
 
-            Text("Tab / Shift+Tab to cycle · Release ⌥ to switch")
+            Text("Tab / ← → to cycle · Click to switch · Esc cancel · Release ⌥ to switch")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -53,7 +36,36 @@ struct SwitcherOverlayView: View {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(.white.opacity(0.15), lineWidth: 1)
         )
-        .padding(40)
+        .padding(24)
+    }
+
+    private func windowRow(_ items: [(offset: Int, element: WindowInfo)]) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(items, id: \.element.id) { index, window in
+                        WindowTile(
+                            window: window,
+                            thumbnail: thumbnails[window.id],
+                            isSelected: index == selectedIndex
+                        )
+                        .id(window.id)
+                        .onHover { hovering in
+                            if hovering { onHover(index) }
+                        }
+                        .onTapGesture { onSelect(index) }
+                    }
+                }
+                .padding(.horizontal, 12)
+            }
+            .onAppear {
+                scrollToSelection(using: proxy, animated: false)
+            }
+            .onChange(of: selectedIndex) {
+                scrollToSelection(using: proxy, animated: true)
+            }
+        }
+        .frame(height: 160)
     }
 
     private func scrollToSelection(using proxy: ScrollViewProxy, animated: Bool) {
@@ -78,7 +90,7 @@ private struct WindowTile: View {
         VStack(spacing: 8) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.black.opacity(0.2))
+                    .fill(Color.black.opacity(0.25))
                     .frame(width: 160, height: 100)
 
                 if let thumbnail {
@@ -109,6 +121,12 @@ private struct WindowTile: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if !window.screenName.isEmpty {
+                    Text("· \(window.screenName)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
                 if window.isMinimized {
                     Text("minimized")
                         .font(.caption2)
@@ -120,7 +138,13 @@ private struct WindowTile: View {
                 }
             }
         }
-        .scaleEffect(isSelected ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.12), value: isSelected)
+        .padding(6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isSelected ? Color.accentColor.opacity(0.12) : Color.clear)
+        )
+        .scaleEffect(isSelected ? 1.04 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: isSelected)
+        .contentShape(Rectangle())
     }
 }
